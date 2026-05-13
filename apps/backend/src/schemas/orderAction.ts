@@ -28,12 +28,23 @@ export const OrderActionSchema = z.object({
   notes: z.array(z.string()).optional()
 });
 
+export const AITraceSchema = z.object({
+  step: z.string(),
+  detail: z.string()
+});
+
 export const AIOrderResponseSchema = z.object({
   assistantMessage: z.string(),
   actions: z.array(OrderActionSchema),
   needsClarification: z.boolean().default(false),
   clarificationQuestion: z.string().nullable().default(null),
-  suggestedItems: z.array(z.string()).default([])
+  suggestedItems: z.array(z.string()).default([]),
+  provider: z.enum(['openai', 'deterministic']).default('deterministic'),
+  model: z.string().default('deterministic-demo-parser'),
+  confidence: z.number().min(0).max(1).default(0.86),
+  normalizedIntent: z.string().default('Process restaurant ordering request'),
+  actionTrace: z.array(AITraceSchema).default([]),
+  cartDiff: z.array(z.string()).default([])
 });
 
 export type AIOrderResponse = z.infer<typeof AIOrderResponseSchema>;

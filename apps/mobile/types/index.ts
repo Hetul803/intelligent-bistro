@@ -49,4 +49,25 @@ export type AIResponse = {
   needsClarification: boolean;
   clarificationQuestion: string | null;
   suggestedItems: string[];
+  provider: 'openai' | 'deterministic';
+  model: string;
+  confidence: number;
+  normalizedIntent: string;
+  actionTrace: Array<{
+    step: string;
+    detail: string;
+  }>;
+  cartDiff: string[];
+};
+
+export type AIChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  meta?: {
+    provider?: string;
+    model?: string;
+    confidence?: number;
+  };
 };

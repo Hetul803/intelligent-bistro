@@ -26,6 +26,7 @@ export default function HomeScreen() {
     let items = category === 'All' ? menu : menu.filter(item => item.category === category);
     if (activeCategory && activeCategory !== 'All') items = items.filter(item => item.category === activeCategory);
     if (activeFilter === 'vegetarian') items = items.filter(item => item.tags.includes('vegetarian'));
+    if (activeFilter === 'gluten-free') items = items.filter(item => item.tags.includes('gluten-free'));
     if (activeFilter === 'popular') items = items.filter(item => item.tags.includes('popular'));
     return items;
   }, [category, activeFilter]);

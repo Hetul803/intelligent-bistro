@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { menu } from '../constants/menu';
-import { AIAction, CartItem, MenuItem } from '../types';
+import { AIAction, AIChatMessage, AIResponse, CartItem, MenuItem } from '../types';
 
 type CartSnapshot = CartItem[];
 
@@ -10,6 +10,8 @@ type CartStore = {
   lastUserIntent: string;
   lastActions: AIAction[];
   lastSuggestedItems: string[];
+  lastAIResponse: AIResponse | null;
+  conversation: AIChatMessage[];
   lastUpdatedAt: number | null;
   activeFilter: string | null;
   history: CartSnapshot[];
@@ -19,6 +21,7 @@ type CartStore = {
   clearCart: () => void;
   clearFilter: () => void;
   applyActions: (actions: AIAction[], assistantMessage: string, intent?: string, suggestedItems?: string[]) => void;
+  applyAIResponse: (response: AIResponse, intent: string) => void;
   undo: () => void;
   subtotal: () => number;
   tax: () => number;
@@ -29,12 +32,26 @@ function mergeModifiers(existing?: Record<string, unknown>, next?: Record<string
   return { ...(existing || {}), ...(next || {}) };
 }
 
+function createMessage(role: AIChatMessage['role'], content: string, meta?: AIChatMessage['meta']): AIChatMessage {
+  return {
+    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    role,
+    content,
+    timestamp: Date.now(),
+    meta
+  };
+}
+
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
   lastAssistantMessage: 'Tell me what you want. I can add, remove, modify, or filter your order.',
   lastUserIntent: 'Awaiting first intent',
   lastActions: [],
   lastSuggestedItems: [],
+  lastAIResponse: null,
+  conversation: [
+    createMessage('assistant', 'I can build combos, modify items, filter the menu, and return validated JSON cart actions.')
+  ],
   lastUpdatedAt: null,
   activeFilter: null,
   history: [],
@@ -84,6 +101,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       items: [],
       activeFilter: null,
       lastActions: [{ type: 'CLEAR_CART' }],
+      lastAIResponse: null,
       lastUpdatedAt: Date.now()
     });
   },
@@ -93,6 +111,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       activeFilter: null,
       lastAssistantMessage: 'Filter cleared. The full menu is back online.',
       lastActions: [{ type: 'NO_OP' }],
+      lastAIResponse: null,
       lastUpdatedAt: Date.now()
     });
   },
@@ -164,6 +183,22 @@ export const useCartStore = create<CartStore>((set, get) => ({
     });
   },
 
+  applyAIResponse: (response, intent) => {
+    get().applyActions(response.actions, response.clarificationQuestion || response.assistantMessage, intent, response.suggestedItems);
+    set({
+      lastAIResponse: response,
+      conversation: [
+        ...get().conversation,
+        createMessage('user', intent),
+        createMessage('assistant', response.clarificationQuestion || response.assistantMessage, {
+          provider: response.provider,
+          model: response.model,
+          confidence: response.confidence
+        })
+      ].slice(-10)
+    });
+  },
+
   undo: () => {
     const history = get().history;
     const previous = history[history.length - 1];
@@ -173,6 +208,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       history: history.slice(0, -1),
       lastAssistantMessage: 'Undone. I restored the previous cart state.',
       lastActions: [{ type: 'NO_OP' }],
+      lastAIResponse: null,
       lastUpdatedAt: Date.now()
     });
   },

@@ -8,9 +8,10 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 
 - Premium mobile UI and interaction design
 - AI-driven ordering through structured JSON actions
+- Visible AI transaction trace: normalized intent, confidence, provider/model, cart diff, and JSON action preview
 - Reliable cart state management through both UI and AI
 - Backend schema validation with Zod
-- Deterministic fallback parser for demo reliability
+- OpenAI Structured Outputs support with deterministic fallback parser for demo reliability
 - Clean monorepo structure
 - Prompt-driven AI development workflow included in `/prompts`
 
@@ -98,7 +99,7 @@ http://localhost:8081
 
 ## Environment Variables
 
-Backend supports optional OpenAI API usage. The app works without an API key because it includes a deterministic parser.
+Backend supports optional OpenAI API usage. The app works without an API key because it includes a deterministic parser with the same response contract.
 
 Create this file:
 
@@ -111,6 +112,7 @@ Optional:
 ```env
 OPENAI_API_KEY=your_api_key_here
 AI_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
 PORT=4000
 ```
 
@@ -123,6 +125,8 @@ Try these in the AI assistant:
 ```txt
 Add two spicy chicken sandwiches and a large water
 ```
+
+This is the core requirement demo. The assistant returns validated JSON actions and the UI shows the action trace, cart diff, and live order update.
 
 ```txt
 Build the viral combo for two
@@ -150,6 +154,16 @@ Make the spicy chicken sandwich not spicy
 
 ```txt
 Make everything less spicy
+```
+
+This demonstrates context-aware modification: the assistant reads the current cart and updates the existing spicy item instead of adding a duplicate.
+
+```txt
+Surprise me with the best order
+```
+
+```txt
+Show me gluten-free options
 ```
 
 ```txt
@@ -184,14 +198,15 @@ The prompts used during development are included in `/prompts`.
 ## Loom Walkthrough Suggested Flow
 
 1. Show the futuristic home screen and menu cards.
-2. Add an item manually from the UI.
-3. Tap “Crew lunch” or say: “Build the viral combo for two.”
-4. Show the validated action trace and the cart updating automatically.
+2. Open the AI Order Brain and run: “Add two spicy chicken sandwiches and a large water.”
+3. Show the conversation, normalized intent, confidence/provider chip, JSON action preview, and cart diff.
+4. Show that the cart updated automatically.
 5. Modify the cart using AI: “Make everything less spicy.”
-6. Demonstrate clarification: “Add a burger.”
-7. Show backend code: route, parser, Zod schema, deterministic fallback.
-8. Explain prompt workflow in `/prompts`.
+6. Demonstrate recommendation logic: “Surprise me with the best order.”
+7. Demonstrate clarification: “Add a burger.”
+8. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
+9. Explain prompt workflow in `/prompts`.
 
 ## Engineering Notes
 
-This project intentionally uses a deterministic fallback parser because internship demos should be reliable even when an external LLM key, rate limit, or network connection fails. If an API key is available, the backend can call an LLM and validate its output with the same Zod schema.
+This project intentionally keeps the deterministic fallback parser because internship demos should be reliable even when an external LLM key, rate limit, or network connection fails. If an API key is available, the backend calls OpenAI with Structured Outputs and validates the model result with the same Zod schema before the frontend applies cart mutations.
