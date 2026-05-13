@@ -8,6 +8,8 @@
   ],
   "scripts": {
     "dev:backend": "npm --workspace apps/backend run dev",
-    "dev:mobile": "npm --workspace apps/mobile run start"
+    "dev:mobile": "npm --workspace apps/mobile run start",
+    "dev:web": "npm --workspace apps/mobile run web",
+    "typecheck": "npm --workspace apps/backend run typecheck && npm --workspace apps/mobile run typecheck"
   }
 }

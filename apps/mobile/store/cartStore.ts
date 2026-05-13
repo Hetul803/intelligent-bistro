@@ -7,13 +7,18 @@ type CartSnapshot = CartItem[];
 type CartStore = {
   items: CartItem[];
   lastAssistantMessage: string;
+  lastUserIntent: string;
+  lastActions: AIAction[];
+  lastSuggestedItems: string[];
+  lastUpdatedAt: number | null;
   activeFilter: string | null;
   history: CartSnapshot[];
   addItem: (item: MenuItem, quantity?: number, modifiers?: Record<string, unknown>, notes?: string[]) => void;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
-  applyActions: (actions: AIAction[], assistantMessage: string) => void;
+  clearFilter: () => void;
+  applyActions: (actions: AIAction[], assistantMessage: string, intent?: string, suggestedItems?: string[]) => void;
   undo: () => void;
   subtotal: () => number;
   tax: () => number;
@@ -27,6 +32,10 @@ function mergeModifiers(existing?: Record<string, unknown>, next?: Record<string
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
   lastAssistantMessage: 'Tell me what you want. I can add, remove, modify, or filter your order.',
+  lastUserIntent: 'Awaiting first intent',
+  lastActions: [],
+  lastSuggestedItems: [],
+  lastUpdatedAt: null,
   activeFilter: null,
   history: [],
 
@@ -70,10 +79,25 @@ export const useCartStore = create<CartStore>((set, get) => ({
   },
 
   clearCart: () => {
-    set({ history: [...get().history, [...get().items]], items: [], activeFilter: null });
+    set({
+      history: [...get().history, [...get().items]],
+      items: [],
+      activeFilter: null,
+      lastActions: [{ type: 'CLEAR_CART' }],
+      lastUpdatedAt: Date.now()
+    });
   },
 
-  applyActions: (actions, assistantMessage) => {
+  clearFilter: () => {
+    set({
+      activeFilter: null,
+      lastAssistantMessage: 'Filter cleared. The full menu is back online.',
+      lastActions: [{ type: 'NO_OP' }],
+      lastUpdatedAt: Date.now()
+    });
+  },
+
+  applyActions: (actions, assistantMessage, intent = get().lastUserIntent, suggestedItems = []) => {
     const snapshot = [...get().items];
     let nextItems = [...get().items];
     let nextFilter: string | null = get().activeFilter;
@@ -132,7 +156,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
       history: [...get().history, snapshot].slice(-10),
       items: nextItems,
       activeFilter: nextFilter,
-      lastAssistantMessage: assistantMessage
+      lastAssistantMessage: assistantMessage,
+      lastUserIntent: intent,
+      lastActions: actions,
+      lastSuggestedItems: suggestedItems,
+      lastUpdatedAt: Date.now()
     });
   },
 
@@ -140,7 +168,13 @@ export const useCartStore = create<CartStore>((set, get) => ({
     const history = get().history;
     const previous = history[history.length - 1];
     if (!previous) return;
-    set({ items: previous, history: history.slice(0, -1), lastAssistantMessage: 'Undone. I restored the previous cart state.' });
+    set({
+      items: previous,
+      history: history.slice(0, -1),
+      lastAssistantMessage: 'Undone. I restored the previous cart state.',
+      lastActions: [{ type: 'NO_OP' }],
+      lastUpdatedAt: Date.now()
+    });
   },
 
   subtotal: () => get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),

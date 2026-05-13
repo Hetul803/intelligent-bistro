@@ -83,6 +83,19 @@ npx expo start
 
 For iOS simulator, press `i`. For Android, press `a`. You can also scan the Expo QR code using Expo Go.
 
+Run the polished web demo locally:
+
+```bash
+npm run dev:backend
+npm run dev:web
+```
+
+Then open:
+
+```txt
+http://localhost:8081
+```
+
 ## Environment Variables
 
 Backend supports optional OpenAI API usage. The app works without an API key because it includes a deterministic parser.
@@ -112,6 +125,18 @@ Add two spicy chicken sandwiches and a large water
 ```
 
 ```txt
+Build the viral combo for two
+```
+
+```txt
+Build me a high-protein lunch under $25
+```
+
+```txt
+I want vegetarian and refreshing
+```
+
+```txt
 Add fries and make my lemonade large
 ```
 
@@ -121,6 +146,10 @@ Remove the fries
 
 ```txt
 Make the spicy chicken sandwich not spicy
+```
+
+```txt
+Make everything less spicy
 ```
 
 ```txt
@@ -156,11 +185,11 @@ The prompts used during development are included in `/prompts`.
 
 1. Show the futuristic home screen and menu cards.
 2. Add an item manually from the UI.
-3. Open the AI assistant and say: “Add two spicy chicken sandwiches and a large water.”
-4. Show that the cart updates automatically.
-5. Modify the cart using AI: “Remove the fries” or “Make my lemonade large.”
+3. Tap “Crew lunch” or say: “Build the viral combo for two.”
+4. Show the validated action trace and the cart updating automatically.
+5. Modify the cart using AI: “Make everything less spicy.”
 6. Demonstrate clarification: “Add a burger.”
-7. Show backend code: route, parser, Zod schema.
+7. Show backend code: route, parser, Zod schema, deterministic fallback.
 8. Explain prompt workflow in `/prompts`.
 
 ## Engineering Notes

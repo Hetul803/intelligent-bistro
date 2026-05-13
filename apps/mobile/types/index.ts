@@ -23,8 +23,18 @@ export type CartItem = MenuItem & {
   lastTouchedAt?: number;
 };
 
+export type AIActionType =
+  | 'ADD_ITEM'
+  | 'REMOVE_ITEM'
+  | 'UPDATE_QUANTITY'
+  | 'UPDATE_MODIFIERS'
+  | 'CLEAR_CART'
+  | 'SHOW_CATEGORY'
+  | 'SHOW_FILTERED_ITEMS'
+  | 'NO_OP';
+
 export type AIAction = {
-  type: 'ADD_ITEM' | 'REMOVE_ITEM' | 'UPDATE_QUANTITY' | 'UPDATE_MODIFIERS' | 'CLEAR_CART' | 'SHOW_CATEGORY' | 'SHOW_FILTERED_ITEMS' | 'NO_OP';
+  type: AIActionType;
   itemId?: string;
   quantity?: number;
   category?: string;

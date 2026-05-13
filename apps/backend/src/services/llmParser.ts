@@ -5,7 +5,7 @@ import { deterministicParse } from './deterministicParser.js';
 
 export async function parseOrderWithAI(message: string, cart: unknown) {
   if (!process.env.OPENAI_API_KEY || process.env.AI_PROVIDER === 'mock') {
-    return deterministicParse(message);
+    return deterministicParse(message, cart);
   }
 
   try {
@@ -17,7 +17,7 @@ export async function parseOrderWithAI(message: string, cart: unknown) {
       messages: [
         {
           role: 'system',
-          content: `You are the ordering intelligence for Intelligent Bistro. Convert customer natural language into strict JSON cart actions. Only use itemIds from the provided menu. Return JSON with assistantMessage, actions, needsClarification, clarificationQuestion, suggestedItems. Valid action types: ADD_ITEM, REMOVE_ITEM, UPDATE_QUANTITY, UPDATE_MODIFIERS, CLEAR_CART, SHOW_CATEGORY, SHOW_FILTERED_ITEMS, NO_OP.`
+          content: `You are the ordering intelligence for Intelligent Bistro. Convert customer natural language into strict JSON cart actions. Only use itemIds from the provided menu. Respect the current cart. If the user asks to modify an existing item, prefer UPDATE_MODIFIERS over adding a duplicate. If the item is ambiguous, ask one concise clarification question and return NO_OP. Return JSON with assistantMessage, actions, needsClarification, clarificationQuestion, suggestedItems. Valid action types: ADD_ITEM, REMOVE_ITEM, UPDATE_QUANTITY, UPDATE_MODIFIERS, CLEAR_CART, SHOW_CATEGORY, SHOW_FILTERED_ITEMS, NO_OP. Keep assistantMessage short, confident, and demo-friendly.`
         },
         {
           role: 'user',
@@ -31,6 +31,6 @@ export async function parseOrderWithAI(message: string, cart: unknown) {
     return AIOrderResponseSchema.parse(parsed);
   } catch (error) {
     console.error('LLM parse failed. Falling back to deterministic parser.', error);
-    return deterministicParse(message);
+    return deterministicParse(message, cart);
   }
 }
