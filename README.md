@@ -7,8 +7,9 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 ## What this demonstrates
 
 - Premium mobile UI and interaction design
-- AI-driven ordering through structured JSON actions
-- Visible AI transaction trace: normalized intent, confidence, provider/model, cart diff, and JSON action preview
+- AI-driven outcome planning through structured JSON actions
+- AI-only ordering jobs for group planning, budget optimization, fastest pickup, and dietary scans
+- Visible AI transaction trace: normalized intent, confidence, provider/model, impact metrics, cart diff, and JSON action preview
 - Reliable cart state management through both UI and AI
 - Backend schema validation with Zod
 - OpenAI Structured Outputs support with deterministic fallback parser for demo reliability
@@ -123,6 +124,26 @@ Without `OPENAI_API_KEY`, the backend automatically uses the deterministic parse
 Try these in the AI assistant:
 
 ```txt
+Build a group order for 4 people under $60 total, one vegetarian, no spicy items
+```
+
+The assistant clears the cart and builds a constrained group order that stays under budget after estimated tax while preserving vegetarian and mild options.
+
+```txt
+Optimize this cart to make it cheaper while keeping a complete meal
+```
+
+This demonstrates why the AI is more than a manual add button: it scans the current cart, removes optional extras, preserves the core meal, and returns a visible savings-oriented action plan.
+
+```txt
+Build the fastest pickup order
+```
+
+```txt
+Run a dietary scan for safe options
+```
+
+```txt
 Add two spicy chicken sandwiches and a large water
 ```
 
@@ -198,14 +219,13 @@ The prompts used during development are included in `/prompts`.
 ## Loom Walkthrough Suggested Flow
 
 1. Show the futuristic home screen and menu cards.
-2. Open the AI Command Center and run: “Add two spicy chicken sandwiches and a large water.”
-3. Show the conversation, normalized intent, confidence/provider chip, JSON action preview, and cart diff.
-4. Show that the cart updated automatically.
-5. Modify the cart using AI: “Make everything less spicy.”
-6. Demonstrate recommendation logic: “Surprise me with the best order.”
-7. Demonstrate clarification: “Add a burger.”
-8. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
-9. Explain prompt workflow in `/prompts`.
+2. Open the AI Command Center and run the “Plan group order” outcome card.
+3. Show the impact metrics, transaction trace, cart diff, JSON action preview, and $58.18 after-tax cart.
+4. Run “Optimize budget” and show the AI lowering the cart total while keeping the core meal.
+5. Run “Fastest pickup” and “Dietary scan” to demonstrate operational and safety-oriented AI tasks.
+6. Use the text prompt: “Add two spicy chicken sandwiches and a large water.”
+7. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
+8. Explain prompt workflow in `/prompts`.
 
 ## Engineering Notes
 

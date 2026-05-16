@@ -11,7 +11,8 @@ Design direction:
 - visible AI concierge
 - live cart dock
 - high-quality menu cards
-- quick prompt chips
+- outcome-based AI job cards
+- impact metrics showing budget, constraints, speed, and safety results
 - AI filter indicator
 - changed cart item highlighting
 

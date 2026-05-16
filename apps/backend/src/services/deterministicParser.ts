@@ -69,8 +69,10 @@ function buildResponse(input: {
   normalizedIntent?: string;
   actionTrace?: AIOrderResponse['actionTrace'];
   cartDiff?: string[];
+  impact?: AIOrderResponse['impact'];
 }): AIOrderResponse {
   const cartDiff = input.cartDiff || input.actions.filter(action => action.type !== 'NO_OP').map(describeAction);
+  const mutationCount = input.actions.filter(action => !['NO_OP', 'SHOW_CATEGORY', 'SHOW_FILTERED_ITEMS'].includes(action.type)).length;
   return AIOrderResponseSchema.parse({
     needsClarification: false,
     clarificationQuestion: null,
@@ -87,6 +89,13 @@ function buildResponse(input: {
         { step: 'Apply', detail: cartDiff.length ? cartDiff.join('; ') : 'No mutation needed; the assistant returned a safe no-op.' }
       ],
     cartDiff,
+    impact:
+      input.impact ||
+      [
+        { label: 'Cart ops', value: String(mutationCount) },
+        { label: 'Schema', value: 'Validated' },
+        { label: 'Mode', value: 'Reliable demo' }
+      ],
     ...input
   });
 }
@@ -102,6 +111,118 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
       assistantMessage: 'I cleared your cart so you can start fresh.',
       actions: [{ type: 'CLEAR_CART' }],
       normalizedIntent: 'Reset the active cart'
+    });
+  }
+
+  if (hasAny(lower, ['group order', 'table of 4', 'party of 4', 'four people', '4 people', 'team lunch'])) {
+    return buildResponse({
+      assistantMessage: 'I solved a four-person order under $60 estimated total with one vegetarian path and no spicy items.',
+      actions: [
+        { type: 'CLEAR_CART' },
+        { type: 'ADD_ITEM', itemId: 'classic_bistro_burger', quantity: 1 },
+        { type: 'ADD_ITEM', itemId: 'veggie_power_bowl', quantity: 1 },
+        { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1 },
+        { type: 'ADD_ITEM', itemId: 'quantum_fries', quantity: 1 },
+        { type: 'ADD_ITEM', itemId: 'large_water', quantity: 1, modifiers: { size: 'large' } }
+      ],
+      suggestedItems: ['lunar_lemonade', 'stellar_chocolate_mousse'],
+      confidence: 0.96,
+      normalizedIntent: 'Plan a constrained group order',
+      actionTrace: [
+        { step: 'Extract constraints', detail: 'Detected party size, vegetarian coverage, no-spice preference, and an after-tax budget target.' },
+        { step: 'Solve menu fit', detail: 'Selected one classic entree, two vegetarian-friendly choices, a shareable side, and water while avoiding spicy items.' },
+        { step: 'Budget check', detail: 'Estimated total stays below $60 after tax, so the order satisfies the constraint without manual comparison.' },
+        { step: 'Apply cart plan', detail: 'Cleared the previous cart and built the optimized group order in one transaction.' }
+      ],
+      cartDiff: ['Reset cart for a clean group plan', 'Add 5 items for 4 guests', 'Keep estimated total under $60', 'Avoid spicy menu items'],
+      impact: [
+        { label: 'People', value: '4' },
+        { label: 'Budget', value: '<$60 total' },
+        { label: 'Constraints', value: 'Veg + mild' }
+      ]
+    });
+  }
+
+  if (hasAny(lower, ['optimize', 'make it cheaper', 'cheaper', 'lower total', 'reduce total', 'under $35', 'under 35'])) {
+    const hasDessert = currentCart.some(item => item.id === 'stellar_chocolate_mousse');
+    const hasLemonade = currentCart.some(item => item.id === 'lunar_lemonade');
+    const hasFries = currentCart.some(item => item.id === 'quantum_fries');
+    const optimizationActions: AIOrderResponse['actions'] = currentCart.length
+      ? [
+          ...(hasDessert ? [{ type: 'REMOVE_ITEM' as const, itemId: 'stellar_chocolate_mousse' }] : []),
+          ...(hasFries ? [{ type: 'REMOVE_ITEM' as const, itemId: 'quantum_fries' }] : []),
+          ...(hasLemonade ? [{ type: 'REMOVE_ITEM' as const, itemId: 'lunar_lemonade' }, { type: 'ADD_ITEM' as const, itemId: 'large_water', quantity: 1, modifiers: { size: 'large' } }] : []),
+          ...(!hasDessert && !hasFries && !hasLemonade ? [{ type: 'UPDATE_MODIFIERS' as const, itemId: currentCart[0]?.id, notes: ['already near-minimum spend'] }] : [])
+        ]
+      : [
+          { type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1, notes: ['best value protein'] },
+          { type: 'ADD_ITEM', itemId: 'large_water', quantity: 1, modifiers: { size: 'large' } }
+        ];
+    return buildResponse({
+      assistantMessage: currentCart.length
+        ? 'I optimized the cart for price by cutting lower-priority extras and preserving the core meal.'
+        : 'I built a value-optimized meal under $35 with a strong entree and drink.',
+      actions: optimizationActions,
+      suggestedItems: ['quantum_fries'],
+      confidence: 0.91,
+      normalizedIntent: 'Optimize cart for budget',
+      actionTrace: [
+        { step: 'Rank items', detail: 'Separated core meal items from nice-to-have extras and premium drinks.' },
+        { step: 'Optimize', detail: 'Reduced spend by cutting optional sides, desserts, or premium drinks while preserving the core meal.' },
+        { step: 'Guardrail', detail: 'Avoided removing the primary meal unless the cart was empty and a new value order was needed.' }
+      ],
+      cartDiff: currentCart.length ? ['Preserve core meal', 'Remove optional side/dessert where present', 'Swap premium drink to water when possible'] : ['Add value entree', 'Add large water', 'Keep order under $35 before tax'],
+      impact: [
+        { label: 'Goal', value: 'Lower total' },
+        { label: 'Kept', value: 'Core meal' },
+        { label: 'Savings scan', value: 'Applied' }
+      ]
+    });
+  }
+
+  if (hasAny(lower, ['fastest', 'fast pickup', 'quickest', 'ready fastest', 'shortest wait'])) {
+    return buildResponse({
+      assistantMessage: 'I built a fast-pickup order with low-prep items and a refreshing drink.',
+      actions: [
+        { type: 'CLEAR_CART' },
+        { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1, notes: ['fast pickup lane'] },
+        { type: 'ADD_ITEM', itemId: 'lunar_lemonade', quantity: 1 }
+      ],
+      suggestedItems: ['stellar_chocolate_mousse'],
+      confidence: 0.89,
+      normalizedIntent: 'Minimize pickup time',
+      actionTrace: [
+        { step: 'Prioritize speed', detail: 'Selected lighter prep items instead of cooked-to-order sandwiches.' },
+        { step: 'Balance meal', detail: 'Paired the fast entree with a drink so the order still feels complete.' },
+        { step: 'Apply', detail: 'Built a compact pickup-ready cart with fewer kitchen stations involved.' }
+      ],
+      cartDiff: ['Reset cart for fastest pickup', 'Add Neon Caesar Salad', 'Add Lunar Lemonade'],
+      impact: [
+        { label: 'Pickup', value: 'Fast lane' },
+        { label: 'Stations', value: 'Fewer' },
+        { label: 'Items', value: '2' }
+      ]
+    });
+  }
+
+  if (hasAny(lower, ['dietary scan', 'scan dietary', 'allergy', 'allergies', 'safe options'])) {
+    return buildResponse({
+      assistantMessage: 'I scanned the menu for safer dietary-friendly options and highlighted the strongest match.',
+      actions: [{ type: 'SHOW_FILTERED_ITEMS', filter: 'gluten-free' }],
+      suggestedItems: ['veggie_power_bowl', 'neon_caesar_salad'],
+      confidence: 0.87,
+      normalizedIntent: 'Scan menu for dietary-safe choices',
+      actionTrace: [
+        { step: 'Read constraints', detail: 'Detected a safety-oriented dietary request instead of a direct add-to-cart request.' },
+        { step: 'Filter', detail: 'Narrowed the menu to tagged gluten-free-friendly and vegetarian-friendly items.' },
+        { step: 'Recommend', detail: 'Suggested options that are easier to reason about before checkout.' }
+      ],
+      cartDiff: ['Filter menu by gluten-free', 'Suggest Veggie Power Bowl', 'Suggest Neon Caesar Salad'],
+      impact: [
+        { label: 'Risk', value: 'Lower' },
+        { label: 'Matches', value: '2' },
+        { label: 'Cart ops', value: '0' }
+      ]
     });
   }
 

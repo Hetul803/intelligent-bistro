@@ -58,6 +58,10 @@ export type AIResponse = {
     detail: string;
   }>;
   cartDiff: string[];
+  impact: Array<{
+    label: string;
+    value: string;
+  }>;
 };
 
 export type AIChatMessage = {

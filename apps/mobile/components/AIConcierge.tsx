@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { BadgeCheck, Bot, Code2, Command, Gauge, GitBranch, MessageSquare, SendHorizonal, Sparkles, Zap } from 'lucide-react-native';
+import { BadgeCheck, Bot, Clock, Code2, Command, Gauge, GitBranch, MessageSquare, ScanSearch, SendHorizonal, Sparkles, Users, Wallet, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from './GlassCard';
 import { useCartStore } from '../store/cartStore';
@@ -8,11 +8,31 @@ import { sendAIOrder } from '../services/api';
 import { menu } from '../constants/menu';
 import { AIAction } from '../types';
 
-const quickPrompts = [
-  { label: 'Parse intent', prompt: 'Add two spicy chicken sandwiches and a large water' },
-  { label: 'Crew lunch', prompt: 'Build the viral combo for two' },
-  { label: 'Chef pick', prompt: 'Surprise me with the best order' },
-  { label: 'Plant mode', prompt: 'I want vegetarian and refreshing' }
+const aiJobs = [
+  {
+    label: 'Plan group order',
+    detail: '4 guests / veg / mild / <$60 total',
+    prompt: 'Build a group order for 4 people under $60 total, one vegetarian, no spicy items',
+    icon: Users
+  },
+  {
+    label: 'Optimize budget',
+    detail: 'Lower total without killing the meal',
+    prompt: 'Optimize this cart to make it cheaper while keeping a complete meal',
+    icon: Wallet
+  },
+  {
+    label: 'Fastest pickup',
+    detail: 'Smallest kitchen footprint',
+    prompt: 'Build the fastest pickup order',
+    icon: Clock
+  },
+  {
+    label: 'Dietary scan',
+    detail: 'Find safer constrained options',
+    prompt: 'Run a dietary scan for safe options',
+    icon: ScanSearch
+  }
 ];
 
 function formatAction(action: AIAction) {
@@ -47,6 +67,11 @@ export function AIConcierge() {
   const providerLabel = lastAIResponse ? `${lastAIResponse.provider}/${lastAIResponse.model}` : 'deterministic-demo-parser';
   const actionTrace = lastAIResponse?.actionTrace || [{ step: 'Awaiting intent', detail: 'The AI center is ready to translate natural language into validated cart actions.' }];
   const cartDiff = lastAIResponse?.cartDiff || [];
+  const impact = lastAIResponse?.impact || [
+    { label: 'AI jobs', value: '4' },
+    { label: 'Cart ops', value: 'Ready' },
+    { label: 'Constraints', value: 'Online' }
+  ];
   const updatedAt = lastUpdatedAt
     ? new Date(lastUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : 'online';
@@ -72,7 +97,12 @@ export function AIConcierge() {
           confidence: 0,
           normalizedIntent: 'Backend unavailable',
           actionTrace: [{ step: 'Network', detail: 'The mobile app could not reach the Node API.' }],
-          cartDiff: []
+          cartDiff: [],
+          impact: [
+            { label: 'Status', value: 'Offline' },
+            { label: 'Cart ops', value: '0' },
+            { label: 'Action', value: 'Retry API' }
+          ]
         },
         text
       );
@@ -104,13 +134,13 @@ export function AIConcierge() {
         <LinearGradient colors={['rgba(20,184,166,0.22)', 'rgba(249,115,22,0.14)', 'rgba(15,23,42,0.65)']} className="mb-4 rounded-lg p-3">
           <View className="mb-3 flex-row items-center gap-2">
             <Zap size={17} color="#FDBA74" />
-            <Text className="text-xs font-black uppercase tracking-widest text-orange-100">Live order prompt</Text>
+            <Text className="text-xs font-black uppercase tracking-widest text-orange-100">Ask for an outcome</Text>
           </View>
           <View className="flex-row items-center gap-3 rounded-lg bg-black/40 px-4 py-3">
             <TextInput
               value={message}
               onChangeText={setMessage}
-              placeholder="Ask: build lunch for two, make it mild, show gluten-free..."
+              placeholder="Feed 4 under $60, veg + mild..."
               placeholderTextColor="#94A3B8"
               className="min-h-10 flex-1 text-base font-semibold text-white"
               returnKeyType="send"
@@ -124,11 +154,29 @@ export function AIConcierge() {
           </View>
         </LinearGradient>
 
-        <View className="mb-4 flex-row flex-wrap gap-2">
-          {quickPrompts.map(prompt => (
-            <Pressable key={prompt.label} onPress={() => submit(prompt.prompt)} className="rounded-full bg-white/10 px-3 py-2">
-              <Text className="text-xs font-black text-slate-100">{prompt.label}</Text>
-            </Pressable>
+        <View className="mb-4 flex-row flex-wrap justify-between gap-y-3">
+          {aiJobs.map(job => {
+            const Icon = job.icon;
+            return (
+              <Pressable key={job.label} onPress={() => submit(job.prompt)} className="overflow-hidden rounded-lg bg-white/10" style={{ width: '49%' }}>
+                <LinearGradient colors={['rgba(20,184,166,0.16)', 'rgba(15,23,42,0.35)']} className="min-h-28 p-3">
+                  <View className="mb-3 h-9 w-9 items-center justify-center rounded-lg bg-black/25">
+                    <Icon size={18} color="#5EEAD4" />
+                  </View>
+                  <Text className="text-sm font-black text-white">{job.label}</Text>
+                  <Text className="mt-1 text-xs font-semibold leading-4 text-slate-300">{job.detail}</Text>
+                </LinearGradient>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View className="mb-4 flex-row gap-2">
+          {impact.map(item => (
+            <View key={`${item.label}-${item.value}`} className="flex-1 rounded-lg bg-slate-950/45 p-3">
+              <Text className="text-xs font-black uppercase tracking-widest text-slate-400">{item.label}</Text>
+              <Text className="mt-1 text-base font-black text-white">{item.value}</Text>
+            </View>
           ))}
         </View>
 

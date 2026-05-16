@@ -33,6 +33,11 @@ export const AITraceSchema = z.object({
   detail: z.string()
 });
 
+export const AIImpactSchema = z.object({
+  label: z.string(),
+  value: z.string()
+});
+
 export const AIOrderResponseSchema = z.object({
   assistantMessage: z.string(),
   actions: z.array(OrderActionSchema),
@@ -44,7 +49,8 @@ export const AIOrderResponseSchema = z.object({
   confidence: z.number().min(0).max(1).default(0.86),
   normalizedIntent: z.string().default('Process restaurant ordering request'),
   actionTrace: z.array(AITraceSchema).default([]),
-  cartDiff: z.array(z.string()).default([])
+  cartDiff: z.array(z.string()).default([]),
+  impact: z.array(AIImpactSchema).default([])
 });
 
 export type AIOrderResponse = z.infer<typeof AIOrderResponseSchema>;
