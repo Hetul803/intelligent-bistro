@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { BadgeCheck, Clock, Minus, Plus, RotateCcw, ShoppingBag, Trash2 } from 'lucide-react-native';
+import { Activity, BadgeCheck, CheckCircle2, Clock, Minus, Plus, RotateCcw, ShoppingBag, Trash2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from './GlassCard';
 import { useCartStore } from '../store/cartStore';
@@ -40,6 +40,28 @@ export function CartDock() {
               <Text className="text-xs font-bold uppercase tracking-widest text-amber-100">Ready</Text>
             </View>
             <Text className="mt-1 text-2xl font-black text-white">{items.length ? `${readyMinutes}m` : '--'}</Text>
+          </View>
+        </View>
+
+        <View className="mb-4 rounded-lg bg-slate-950/45 p-3">
+          <View className="mb-3 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Activity size={15} color="#5EEAD4" />
+              <Text className="text-xs font-black uppercase tracking-widest text-teal-100">Fulfillment OS</Text>
+            </View>
+            <Text className="text-xs font-black text-slate-400">{submitted ? 'SYNCED' : items.length ? 'READY TO FIRE' : 'STANDBY'}</Text>
+          </View>
+          <View className="gap-2">
+            {[
+              { label: 'Cart validated', active: items.length > 0 },
+              { label: 'Kitchen packet generated', active: submitted },
+              { label: 'Guest pickup window locked', active: submitted }
+            ].map(stage => (
+              <View key={stage.label} className="flex-row items-center gap-2">
+                <CheckCircle2 size={15} color={stage.active ? '#6EE7B7' : '#64748B'} />
+                <Text className={`text-xs font-bold ${stage.active ? 'text-emerald-100' : 'text-slate-500'}`}>{stage.label}</Text>
+              </View>
+            ))}
           </View>
         </View>
 

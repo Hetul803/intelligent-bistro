@@ -9,11 +9,10 @@ import { menu } from '../constants/menu';
 import { AIAction } from '../types';
 
 const quickPrompts = [
-  { label: 'Parse demo', prompt: 'Add two spicy chicken sandwiches and a large water' },
+  { label: 'Parse intent', prompt: 'Add two spicy chicken sandwiches and a large water' },
   { label: 'Crew lunch', prompt: 'Build the viral combo for two' },
-  { label: 'Surprise me', prompt: 'Surprise me with the best order' },
-  { label: 'Plant mode', prompt: 'I want vegetarian and refreshing' },
-  { label: 'Gluten-free', prompt: 'Show me gluten-free options' }
+  { label: 'Chef pick', prompt: 'Surprise me with the best order' },
+  { label: 'Plant mode', prompt: 'I want vegetarian and refreshing' }
 ];
 
 function formatAction(action: AIAction) {
@@ -30,6 +29,7 @@ function formatAction(action: AIAction) {
 export function AIConcierge() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activePanel, setActivePanel] = useState<'plan' | 'json' | 'chat'>('plan');
   const cart = useCartStore(state => state.items);
   const addItem = useCartStore(state => state.addItem);
   const applyAIResponse = useCartStore(state => state.applyAIResponse);
@@ -45,6 +45,8 @@ export function AIConcierge() {
   const actionJson = useMemo(() => JSON.stringify(lastActions.length ? lastActions : [{ type: 'AWAITING_INTENT' }], null, 2), [lastActions]);
   const confidence = Math.round((lastAIResponse?.confidence ?? 0.86) * 100);
   const providerLabel = lastAIResponse ? `${lastAIResponse.provider}/${lastAIResponse.model}` : 'deterministic-demo-parser';
+  const actionTrace = lastAIResponse?.actionTrace || [{ step: 'Awaiting intent', detail: 'The AI center is ready to translate natural language into validated cart actions.' }];
+  const cartDiff = lastAIResponse?.cartDiff || [];
   const updatedAt = lastUpdatedAt
     ? new Date(lastUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : 'online';
@@ -83,12 +85,12 @@ export function AIConcierge() {
     <GlassCard className="mb-5">
       <View className="p-5">
         <View className="mb-4 flex-row items-center gap-3">
-          <LinearGradient colors={['rgba(20,184,166,0.95)', 'rgba(249,115,22,0.9)']} className="h-12 w-12 items-center justify-center rounded-lg">
+          <LinearGradient colors={['rgba(20,184,166,0.98)', 'rgba(249,115,22,0.92)']} className="h-12 w-12 items-center justify-center rounded-lg">
             <Bot size={23} color="white" />
           </LinearGradient>
           <View className="flex-1">
-            <Text className="text-xl font-black text-white">AI Order Brain</Text>
-            <Text className="mt-1 text-xs font-semibold uppercase tracking-widest text-teal-100">Natural language to cart JSON</Text>
+            <Text className="text-2xl font-black text-white">AI Command Center</Text>
+            <Text className="mt-1 text-xs font-semibold uppercase tracking-widest text-teal-100">Intent to validated cart actions</Text>
           </View>
           <View className="items-end">
             <View className="flex-row items-center gap-1 rounded-full bg-emerald-400/15 px-3 py-2">
@@ -99,15 +101,45 @@ export function AIConcierge() {
           </View>
         </View>
 
+        <LinearGradient colors={['rgba(20,184,166,0.22)', 'rgba(249,115,22,0.14)', 'rgba(15,23,42,0.65)']} className="mb-4 rounded-lg p-3">
+          <View className="mb-3 flex-row items-center gap-2">
+            <Zap size={17} color="#FDBA74" />
+            <Text className="text-xs font-black uppercase tracking-widest text-orange-100">Live order prompt</Text>
+          </View>
+          <View className="flex-row items-center gap-3 rounded-lg bg-black/40 px-4 py-3">
+            <TextInput
+              value={message}
+              onChangeText={setMessage}
+              placeholder="Ask: build lunch for two, make it mild, show gluten-free..."
+              placeholderTextColor="#94A3B8"
+              className="min-h-10 flex-1 text-base font-semibold text-white"
+              returnKeyType="send"
+              onSubmitEditing={() => submit()}
+            />
+            <Pressable onPress={() => submit()} className="overflow-hidden rounded-lg">
+              <LinearGradient colors={['#14B8A6', '#F97316']} className="h-12 w-12 items-center justify-center">
+                {loading ? <ActivityIndicator color="white" /> : <SendHorizonal size={19} color="white" />}
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </LinearGradient>
+
+        <View className="mb-4 flex-row flex-wrap gap-2">
+          {quickPrompts.map(prompt => (
+            <Pressable key={prompt.label} onPress={() => submit(prompt.prompt)} className="rounded-full bg-white/10 px-3 py-2">
+              <Text className="text-xs font-black text-slate-100">{prompt.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <View className="mb-4 gap-3 rounded-lg bg-black/25 p-4">
           <View className="flex-row items-center gap-2">
             <Command size={15} color="#5EEAD4" />
             <Text className="text-xs font-black uppercase tracking-widest text-teal-100">Current AI transaction</Text>
           </View>
-          <Text className="text-base font-semibold leading-6 text-white">{lastUserIntent}</Text>
-          <View className="h-px bg-white/10" />
+          <Text className="text-base font-black leading-6 text-white">{lastUserIntent}</Text>
           <Text className="leading-6 text-slate-200">{lastAssistantMessage}</Text>
-          <View className="flex-row flex-wrap gap-2 pt-1">
+          <View className="flex-row flex-wrap gap-2">
             <View className="flex-row items-center gap-1 rounded-full bg-white/10 px-3 py-2">
               <Gauge size={13} color="#FCD34D" />
               <Text className="text-xs font-black text-amber-100">{providerLabel}</Text>
@@ -119,7 +151,7 @@ export function AIConcierge() {
             ) : null}
           </View>
           {visibleActions.length ? (
-            <View className="flex-row flex-wrap gap-2 pt-1">
+            <View className="flex-row flex-wrap gap-2">
               {visibleActions.map((action, index) => (
                 <View key={`${action.type}-${action.itemId || index}`} className="rounded-full bg-teal-300/15 px-3 py-2">
                   <Text className="text-xs font-black text-teal-100">{formatAction(action)}</Text>
@@ -127,66 +159,6 @@ export function AIConcierge() {
               ))}
             </View>
           ) : null}
-        </View>
-
-        <View className="mb-4 gap-3">
-          <View className="rounded-lg bg-slate-950/55 p-3">
-            <View className="mb-2 flex-row items-center gap-2">
-              <MessageSquare size={14} color="#5EEAD4" />
-              <Text className="text-xs font-black uppercase tracking-widest text-teal-100">Conversation</Text>
-            </View>
-            <ScrollView className="max-h-44" nestedScrollEnabled>
-              <View className="gap-2">
-                {conversation.map(chat => (
-                  <View key={chat.id} className={`rounded-lg px-3 py-2 ${chat.role === 'user' ? 'bg-teal-300/15' : 'bg-white/10'}`}>
-                    <Text className="text-xs font-black uppercase tracking-widest text-slate-400">{chat.role === 'user' ? 'You' : 'Assistant'}</Text>
-                    <Text className="mt-1 text-sm font-semibold leading-5 text-white">{chat.content}</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-
-          <View className="rounded-lg bg-slate-950/55 p-3">
-            <View className="mb-2 flex-row items-center gap-2">
-              <GitBranch size={14} color="#FCD34D" />
-              <Text className="text-xs font-black uppercase tracking-widest text-amber-100">Action trace</Text>
-            </View>
-            <View className="gap-2">
-              {(lastAIResponse?.actionTrace || [{ step: 'Awaiting intent', detail: 'Ask the assistant to build or modify an order.' }]).map(trace => (
-                <View key={`${trace.step}-${trace.detail}`} className="flex-row gap-3">
-                  <View className="mt-2 h-2 w-2 rounded-full bg-amber-300" />
-                  <View className="flex-1">
-                    <Text className="text-sm font-black text-white">{trace.step}</Text>
-                    <Text className="mt-1 text-xs leading-5 text-slate-300">{trace.detail}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View className="rounded-lg bg-slate-950/55 p-3">
-            <View className="mb-2 flex-row items-center gap-2">
-              <Code2 size={14} color="#C4B5FD" />
-              <Text className="text-xs font-black uppercase tracking-widest text-violet-100">Structured JSON actions</Text>
-            </View>
-            <Text className="font-mono text-xs leading-5 text-violet-100">{actionJson}</Text>
-            {lastAIResponse?.cartDiff?.length ? (
-              <View className="mt-3 gap-1 border-t border-white/10 pt-3">
-                {lastAIResponse.cartDiff.map(diff => (
-                  <Text key={diff} className="text-xs font-semibold text-emerald-100">+ {diff}</Text>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        <View className="mb-4 flex-row flex-wrap gap-2">
-          {quickPrompts.map(prompt => (
-            <Pressable key={prompt.label} onPress={() => submit(prompt.prompt)} className="rounded-full bg-white/10 px-3 py-2">
-              <Text className="text-xs font-black text-slate-100">{prompt.label}</Text>
-            </Pressable>
-          ))}
         </View>
 
         {suggestedMenuItems.length ? (
@@ -205,22 +177,61 @@ export function AIConcierge() {
           </View>
         ) : null}
 
-        <View className="flex-row items-center gap-3 rounded-lg bg-black/35 px-4 py-3">
-          <Zap size={18} color="#F97316" />
-          <TextInput
-            value={message}
-            onChangeText={setMessage}
-            placeholder="Ask for a combo, filter, modification, or cart reset"
-            placeholderTextColor="#94A3B8"
-            className="flex-1 text-base text-white"
-            returnKeyType="send"
-            onSubmitEditing={() => submit()}
-          />
-          <Pressable onPress={() => submit()} className="overflow-hidden rounded-lg">
-            <LinearGradient colors={['#14B8A6', '#F97316']} className="h-12 w-12 items-center justify-center">
-              {loading ? <ActivityIndicator color="white" /> : <SendHorizonal size={19} color="white" />}
-            </LinearGradient>
-          </Pressable>
+        <View className="mb-3 flex-row rounded-lg bg-slate-950/65 p-1">
+          {[
+            { id: 'plan', label: 'Plan', icon: GitBranch },
+            { id: 'json', label: 'JSON', icon: Code2 },
+            { id: 'chat', label: 'Chat', icon: MessageSquare }
+          ].map(panel => {
+            const selected = activePanel === panel.id;
+            const Icon = panel.icon;
+            return (
+              <Pressable key={panel.id} onPress={() => setActivePanel(panel.id as 'plan' | 'json' | 'chat')} className={`flex-1 flex-row items-center justify-center gap-2 rounded-md py-3 ${selected ? 'bg-white/10' : ''}`}>
+                <Icon size={14} color={selected ? '#5EEAD4' : '#94A3B8'} />
+                <Text className={`text-xs font-black ${selected ? 'text-white' : 'text-slate-400'}`}>{panel.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View className="rounded-lg bg-slate-950/55 p-3">
+          {activePanel === 'plan' ? (
+            <View className="gap-3">
+              {actionTrace.map(trace => (
+                <View key={`${trace.step}-${trace.detail}`} className="flex-row gap-3">
+                  <View className="mt-2 h-2 w-2 rounded-full bg-amber-300" />
+                  <View className="flex-1">
+                    <Text className="text-sm font-black text-white">{trace.step}</Text>
+                    <Text className="mt-1 text-xs leading-5 text-slate-300">{trace.detail}</Text>
+                  </View>
+                </View>
+              ))}
+              {cartDiff.length ? (
+                <View className="gap-1 border-t border-white/10 pt-3">
+                  {cartDiff.map(diff => (
+                    <Text key={diff} className="text-xs font-semibold text-emerald-100">+ {diff}</Text>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {activePanel === 'json' ? (
+            <Text className="font-mono text-xs leading-5 text-violet-100">{actionJson}</Text>
+          ) : null}
+
+          {activePanel === 'chat' ? (
+            <ScrollView className="max-h-52" nestedScrollEnabled>
+              <View className="gap-2">
+                {conversation.map(chat => (
+                  <View key={chat.id} className={`rounded-lg px-3 py-2 ${chat.role === 'user' ? 'bg-teal-300/15' : 'bg-white/10'}`}>
+                    <Text className="text-xs font-black uppercase tracking-widest text-slate-400">{chat.role === 'user' ? 'You' : 'Assistant'}</Text>
+                    <Text className="mt-1 text-sm font-semibold leading-5 text-white">{chat.content}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          ) : null}
         </View>
       </View>
     </GlassCard>

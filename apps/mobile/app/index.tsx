@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ImageBackground, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Cpu, Filter, Orbit, Sparkles, X, Zap } from 'lucide-react-native';
+import { Activity, Cpu, Filter, Orbit, X, Zap } from 'lucide-react-native';
 import { menu } from '../constants/menu';
 import { Category } from '../types';
 import { MenuCard } from '../components/MenuCard';
@@ -68,9 +68,13 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {visibleMenu.map(item => (
-        <MenuCard key={item.id} item={item} isSuggested={lastSuggestedItems.includes(item.id)} />
-      ))}
+      <View className={isWide ? 'flex-row flex-wrap justify-between' : ''}>
+        {visibleMenu.map(item => (
+          <View key={item.id} style={{ width: isWide ? '48.8%' : '100%' }}>
+            <MenuCard item={item} isSuggested={lastSuggestedItems.includes(item.id)} />
+          </View>
+        ))}
+      </View>
     </View>
   );
 
@@ -81,20 +85,18 @@ export default function HomeScreen() {
       imageStyle={{ opacity: 0.34 }}
       className="mb-5 overflow-hidden rounded-lg bg-slate-950"
     >
-      <LinearGradient colors={['rgba(2,6,23,0.96)', 'rgba(15,23,42,0.78)', 'rgba(20,83,45,0.66)']} className="p-5" style={{ minHeight: isWide ? 280 : 330 }}>
+      <LinearGradient colors={['rgba(2,6,23,0.96)', 'rgba(15,23,42,0.82)', 'rgba(20,83,45,0.66)']} className="p-5" style={{ minHeight: isWide ? 190 : 210 }}>
         <View className="flex-1 justify-between">
           <View>
-            <View className="mb-4 flex-row items-center gap-2">
+            <View className="mb-3 flex-row items-center gap-2">
               <Orbit size={18} color="#5EEAD4" />
               <Text className="text-xs font-black uppercase tracking-[3px] text-teal-100">Future Dining OS</Text>
             </View>
-            <Text className="text-5xl font-black leading-tight text-white">Intelligent Bistro</Text>
-            <Text className="mt-3 max-w-xl text-base font-semibold leading-7 text-slate-200">
-              Conversational ordering with a cart that reacts to intent, dietary context, and live modifications.
-            </Text>
+            <Text className="text-4xl font-black leading-tight text-white">Intelligent Bistro</Text>
+            <Text className="mt-2 max-w-xl text-base font-semibold leading-6 text-slate-200">AI-native ordering cockpit for high-speed restaurant service.</Text>
           </View>
 
-          <View className="mt-8 flex-row flex-wrap gap-2">
+          <View className="mt-5 flex-row flex-wrap gap-2">
             <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
               <Cpu size={16} color="#FCD34D" />
               <Text className="text-xs font-black text-amber-100">ZOD VALIDATED</Text>
@@ -104,8 +106,8 @@ export default function HomeScreen() {
               <Text className="text-xs font-black text-orange-100">DEMO RELIABLE</Text>
             </View>
             <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
-              <Sparkles size={16} color="#5EEAD4" />
-              <Text className="text-xs font-black text-teal-100">AI NATIVE</Text>
+              <Activity size={16} color="#5EEAD4" />
+              <Text className="text-xs font-black text-teal-100">LIVE JSON</Text>
             </View>
           </View>
         </View>
@@ -119,16 +121,18 @@ export default function HomeScreen() {
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: isWide ? 28 : 20, paddingBottom: 32 }}>
           <View className="pt-5" style={{ alignSelf: 'center', maxWidth: 1180, width: '100%' }}>
             {isWide ? (
-              <View className="flex-row items-start gap-5">
-                <View className="flex-1">
-                  {hero}
-                  {menuSection}
+              <>
+                {hero}
+                <View className="flex-row items-start gap-5">
+                  <View className="flex-1">
+                    <AIConcierge />
+                  </View>
+                  <View style={{ width: 380 }}>
+                    <CartDock />
+                  </View>
                 </View>
-                <View style={{ width: 400 }}>
-                  <AIConcierge />
-                  <CartDock />
-                </View>
-              </View>
+                {menuSection}
+              </>
             ) : (
               <>
                 {hero}

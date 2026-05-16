@@ -198,7 +198,7 @@ The prompts used during development are included in `/prompts`.
 ## Loom Walkthrough Suggested Flow
 
 1. Show the futuristic home screen and menu cards.
-2. Open the AI Order Brain and run: “Add two spicy chicken sandwiches and a large water.”
+2. Open the AI Command Center and run: “Add two spicy chicken sandwiches and a large water.”
 3. Show the conversation, normalized intent, confidence/provider chip, JSON action preview, and cart diff.
 4. Show that the cart updated automatically.
 5. Modify the cart using AI: “Make everything less spicy.”
