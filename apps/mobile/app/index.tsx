@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ImageBackground, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Activity, Cpu, Filter, Orbit, X, Zap } from 'lucide-react-native';
+import { Bot, Filter, MessageCircle, ShoppingBag, Utensils, X } from 'lucide-react-native';
 import { menu } from '../constants/menu';
 import { Category } from '../types';
 import { MenuCard } from '../components/MenuCard';
@@ -14,6 +14,7 @@ const categories: Array<Category | 'All'> = ['All', 'Sandwiches', 'Bowls', 'Side
 
 export default function HomeScreen() {
   const [category, setCategory] = useState<Category | 'All'>('All');
+  const [viewMode, setViewMode] = useState<'ai' | 'menu'>('ai');
   const { width } = useWindowDimensions();
   const isWide = width >= 960;
   const activeFilter = useCartStore(state => state.activeFilter);
@@ -35,8 +36,8 @@ export default function HomeScreen() {
     <View>
       <View className="mb-4 flex-row items-center justify-between gap-4">
         <View>
-          <Text className="text-2xl font-black text-white">Menu Matrix</Text>
-          <Text className="mt-1 text-sm font-semibold text-slate-400">{visibleMenu.length} items calibrated</Text>
+          <Text className="text-2xl font-black text-white">Menu</Text>
+          <Text className="mt-1 text-sm font-semibold text-slate-400">{visibleMenu.length} items available when you want to browse manually</Text>
         </View>
         <View className="rounded-full bg-white/10 px-3 py-2">
           <Text className="text-xs font-black text-white">{itemCount} IN ORDER</Text>
@@ -78,41 +79,38 @@ export default function HomeScreen() {
     </View>
   );
 
-  const hero = (
-    <ImageBackground
-      source={{ uri: menu[0].image }}
-      resizeMode="cover"
-      imageStyle={{ opacity: 0.34 }}
-      className="mb-5 overflow-hidden rounded-lg bg-slate-950"
-    >
-      <LinearGradient colors={['rgba(2,6,23,0.96)', 'rgba(15,23,42,0.82)', 'rgba(20,83,45,0.66)']} className="p-5" style={{ minHeight: isWide ? 190 : 210 }}>
-        <View className="flex-1 justify-between">
-          <View>
-            <View className="mb-3 flex-row items-center gap-2">
-              <Orbit size={18} color="#5EEAD4" />
-              <Text className="text-xs font-black uppercase tracking-[3px] text-teal-100">Future Dining OS</Text>
-            </View>
-            <Text className="text-4xl font-black leading-tight text-white">Intelligent Bistro</Text>
-            <Text className="mt-2 max-w-xl text-base font-semibold leading-6 text-slate-200">AI-native ordering cockpit for high-speed restaurant service.</Text>
-          </View>
-
-          <View className="mt-5 flex-row flex-wrap gap-2">
-            <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
-              <Cpu size={16} color="#FCD34D" />
-              <Text className="text-xs font-black text-amber-100">ZOD VALIDATED</Text>
-            </View>
-            <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
-              <Zap size={16} color="#FB923C" />
-              <Text className="text-xs font-black text-orange-100">DEMO RELIABLE</Text>
-            </View>
-            <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
-              <Activity size={16} color="#5EEAD4" />
-              <Text className="text-xs font-black text-teal-100">LIVE JSON</Text>
-            </View>
-          </View>
+  const topBar = (
+    <View className="mb-5 rounded-lg border border-white/10 bg-slate-950/55 p-4">
+      <View className="flex-row items-center gap-3">
+        <LinearGradient colors={['#14B8A6', '#F97316']} className="h-11 w-11 items-center justify-center rounded-lg">
+          <Bot size={21} color="white" />
+        </LinearGradient>
+        <View className="flex-1">
+          <Text className="text-2xl font-black text-white">Intelligent Bistro</Text>
+          <Text className="mt-1 text-xs font-black uppercase tracking-widest text-teal-100">AI is the front door</Text>
         </View>
-      </LinearGradient>
-    </ImageBackground>
+        <View className="flex-row gap-2">
+          <Pressable onPress={() => setViewMode('ai')} className={`flex-row items-center gap-2 rounded-full px-3 py-2 ${viewMode === 'ai' ? 'bg-teal-300' : 'bg-white/10'}`}>
+            <MessageCircle size={14} color={viewMode === 'ai' ? '#020617' : 'white'} />
+            <Text className={`text-xs font-black ${viewMode === 'ai' ? 'text-slate-950' : 'text-white'}`}>AI</Text>
+          </Pressable>
+          <Pressable onPress={() => setViewMode('menu')} className={`flex-row items-center gap-2 rounded-full px-3 py-2 ${viewMode === 'menu' ? 'bg-amber-300' : 'bg-white/10'}`}>
+            <Utensils size={14} color={viewMode === 'menu' ? '#020617' : 'white'} />
+            <Text className={`text-xs font-black ${viewMode === 'menu' ? 'text-slate-950' : 'text-white'}`}>Menu</Text>
+          </Pressable>
+        </View>
+      </View>
+      <View className="mt-4 flex-row flex-wrap gap-2">
+        <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
+          <Bot size={15} color="#5EEAD4" />
+          <Text className="text-xs font-black text-teal-100">CHAT-FIRST ORDERING</Text>
+        </View>
+        <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
+          <ShoppingBag size={15} color="#FCD34D" />
+          <Text className="text-xs font-black text-amber-100">{itemCount} IN ORDER</Text>
+        </View>
+      </View>
+    </View>
   );
 
   return (
@@ -120,9 +118,9 @@ export default function HomeScreen() {
       <SafeAreaView className="flex-1">
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: isWide ? 28 : 20, paddingBottom: 32 }}>
           <View className="pt-5" style={{ alignSelf: 'center', maxWidth: 1180, width: '100%' }}>
-            {isWide ? (
-              <>
-                {hero}
+            {topBar}
+            {viewMode === 'ai' ? (
+              isWide ? (
                 <View className="flex-row items-start gap-5">
                   <View className="flex-1">
                     <AIConcierge />
@@ -131,14 +129,24 @@ export default function HomeScreen() {
                     <CartDock />
                   </View>
                 </View>
-                {menuSection}
-              </>
+              ) : (
+                <>
+                  <AIConcierge />
+                  <CartDock />
+                </>
+              )
             ) : (
               <>
-                {hero}
-                <AIConcierge />
-                <CartDock />
-                {menuSection}
+                <View className={isWide ? 'flex-row items-start gap-5' : ''}>
+                  <View className="flex-1">{menuSection}</View>
+                  {isWide ? (
+                    <View style={{ width: 380 }}>
+                      <CartDock />
+                    </View>
+                  ) : (
+                    <CartDock />
+                  )}
+                </View>
               </>
             )}
           </View>

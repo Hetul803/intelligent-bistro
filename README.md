@@ -7,8 +7,10 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 ## What this demonstrates
 
 - Premium mobile UI and interaction design
+- AI-first home screen with the manual menu behind a secondary toggle
 - AI-driven outcome planning through structured JSON actions
 - AI-only ordering jobs for group planning, budget optimization, fastest pickup, and dietary scans
+- In-chat item option cards so guests can choose surfaced recommendations without browsing the full menu
 - Visible AI transaction trace: normalized intent, confidence, provider/model, impact metrics, cart diff, and JSON action preview
 - Reliable cart state management through both UI and AI
 - Backend schema validation with Zod
@@ -127,7 +129,29 @@ Try these in the AI assistant:
 Build a group order for 4 people under $60 total, one vegetarian, no spicy items
 ```
 
-The assistant clears the cart and builds a constrained group order that stays under budget after estimated tax while preserving vegetarian and mild options.
+The assistant clears the cart and builds a constrained group order that stays under budget after estimated tax while preserving vegetarian and mild options. Because no drink was requested, it asks before adding beverages.
+
+```txt
+clear the entire order
+```
+
+```txt
+remove all the items
+```
+
+Both clear the cart through the same validated `CLEAR_CART` action.
+
+```txt
+I need something spicy and under 10 dollars
+```
+
+The assistant refuses to fake the match, explains that no spicy item fits, and surfaces the closest option as an in-chat card.
+
+```txt
+I need something spicy but under 20 dollars
+```
+
+The assistant adds the Spicy Chicken Sandwich, then asks whether the guest wants a drink instead of adding one automatically.
 
 ```txt
 Optimize this cart to make it cheaper while keeping a complete meal
@@ -218,14 +242,15 @@ The prompts used during development are included in `/prompts`.
 
 ## Loom Walkthrough Suggested Flow
 
-1. Show the futuristic home screen and menu cards.
-2. Open the AI Command Center and run the “Plan group order” outcome card.
-3. Show the impact metrics, transaction trace, cart diff, JSON action preview, and $58.18 after-tax cart.
-4. Run “Optimize budget” and show the AI lowering the cart total while keeping the core meal.
-5. Run “Fastest pickup” and “Dietary scan” to demonstrate operational and safety-oriented AI tasks.
-6. Use the text prompt: “Add two spicy chicken sandwiches and a large water.”
-7. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
-8. Explain prompt workflow in `/prompts`.
+1. Show that the app opens directly into AI chat, with the manual menu available as a secondary toggle.
+2. Run: “I need something spicy and under 10 dollars.” Show the assistant refusing the bad match and surfacing options in chat.
+3. Run: “I need something spicy but under 20 dollars.” Show the sandwich added and the drink follow-up question.
+4. Run: “clear the entire order” and “remove all the items” to show natural cart control.
+5. Run the “Plan group” shortcut and show budget, vegetarian, mild, and drink guardrails.
+6. Open the JSON panel and show validated structured actions.
+7. Toggle to the menu briefly to show manual fallback, then return to AI.
+8. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
+9. Explain prompt workflow in `/prompts`.
 
 ## Engineering Notes
 

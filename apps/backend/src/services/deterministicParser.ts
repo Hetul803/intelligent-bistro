@@ -27,6 +27,11 @@ function hasAny(message: string, terms: string[]): boolean {
   return terms.some(term => message.includes(term));
 }
 
+function dollarLimit(message: string): number | null {
+  const match = message.match(/(?:under|below|less than)\s*\$?\s*(\d+(?:\.\d{1,2})?)/);
+  return match ? Number(match[1]) : null;
+}
+
 function normalizeCart(cart: unknown) {
   const parsed = CartItemSchema.array().safeParse(cart);
   return parsed.success ? parsed.data : [];
@@ -105,40 +110,91 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
   const currentCart = normalizeCart(cart);
   const actions: AIOrderResponse['actions'] = [];
   const summaries: string[] = [];
+  const budgetLimit = dollarLimit(lower);
+  const wantsSpicy = lower.includes('spicy') && !hasAny(lower, ['no spicy', 'no-spicy', 'not spicy', 'less spicy', 'make it mild']);
 
-  if (hasAny(lower, ['clear cart', 'clear my cart', 'start over', 'empty cart'])) {
+  if (hasAny(lower, ['clear cart', 'clear my cart', 'clear order', 'clear the order', 'clear the entire order', 'start over', 'empty cart', 'empty order', 'remove all', 'remove everything', 'remove all the items', 'delete everything'])) {
     return buildResponse({
-      assistantMessage: 'I cleared your cart so you can start fresh.',
+      assistantMessage: 'I cleared the entire order so you can start fresh.',
       actions: [{ type: 'CLEAR_CART' }],
-      normalizedIntent: 'Reset the active cart'
+      normalizedIntent: 'Reset the active cart',
+      impact: [
+        { label: 'Cart', value: 'Cleared' },
+        { label: 'Items', value: '0' },
+        { label: 'Next', value: 'Ready' }
+      ]
+    });
+  }
+
+  if (wantsSpicy && budgetLimit !== null) {
+    const spicyChicken = menu.find(item => item.id === 'spicy_chicken_sandwich');
+    if (spicyChicken && spicyChicken.price <= budgetLimit) {
+      return buildResponse({
+        assistantMessage: `The Spicy Chicken Sandwich is $${spicyChicken.price.toFixed(2)} and fits under $${budgetLimit}. I added it. Would you like a drink with that?`,
+        actions: [{ type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1 }],
+        suggestedItems: ['lunar_lemonade', 'large_water'],
+        confidence: 0.95,
+        normalizedIntent: 'Find and add spicy item under budget',
+        actionTrace: [
+          { step: 'Read constraints', detail: `Detected spicy preference and a $${budgetLimit} budget ceiling.` },
+          { step: 'Match menu', detail: 'Selected the only spicy menu item that satisfies the budget instead of falling back to a mild salad.' },
+          { step: 'Ask pairing', detail: 'No drink was requested, so the assistant asks before adding one.' }
+        ],
+        cartDiff: ['Add Spicy Chicken Sandwich', 'Hold drinks until guest confirms'],
+        impact: [
+          { label: 'Match', value: 'Spicy' },
+          { label: 'Price', value: `$${spicyChicken.price.toFixed(2)}` },
+          { label: 'Drink', value: 'Ask first' }
+        ]
+      });
+    }
+
+    return buildResponse({
+      assistantMessage: `I do not have a spicy item under $${budgetLimit}. The closest match is the Spicy Chicken Sandwich at $${spicyChicken?.price.toFixed(2) || '14.50'}. Want me to add that, or should I find something cheaper and mild?`,
+      actions: [{ type: 'NO_OP' }],
+      needsClarification: true,
+      clarificationQuestion: `I do not have a spicy item under $${budgetLimit}. The closest match is the Spicy Chicken Sandwich at $${spicyChicken?.price.toFixed(2) || '14.50'}. Should I add it anyway?`,
+      suggestedItems: ['spicy_chicken_sandwich', 'quantum_fries'],
+      confidence: 0.9,
+      normalizedIntent: 'Clarify impossible spicy budget request',
+      actionTrace: [
+        { step: 'Read constraints', detail: `Detected spicy preference and a $${budgetLimit} budget ceiling.` },
+        { step: 'Scan menu', detail: 'No spicy item satisfies that price ceiling.' },
+        { step: 'Clarify', detail: 'The assistant avoids adding a mismatched item and asks the guest to approve the closest match.' }
+      ],
+      cartDiff: ['No cart change', 'Surface closest spicy option'],
+      impact: [
+        { label: 'Match', value: 'None' },
+        { label: 'Closest', value: '$14.50' },
+        { label: 'Cart ops', value: '0' }
+      ]
     });
   }
 
   if (hasAny(lower, ['group order', 'table of 4', 'party of 4', 'four people', '4 people', 'team lunch'])) {
     return buildResponse({
-      assistantMessage: 'I solved a four-person order under $60 estimated total with one vegetarian path and no spicy items.',
+      assistantMessage: 'I solved a four-person order under $60 estimated total with one vegetarian path and no spicy items. I held drinks out of the cart. Want water or lemonade for the table?',
       actions: [
         { type: 'CLEAR_CART' },
         { type: 'ADD_ITEM', itemId: 'classic_bistro_burger', quantity: 1 },
         { type: 'ADD_ITEM', itemId: 'veggie_power_bowl', quantity: 1 },
         { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1 },
-        { type: 'ADD_ITEM', itemId: 'quantum_fries', quantity: 1 },
-        { type: 'ADD_ITEM', itemId: 'large_water', quantity: 1, modifiers: { size: 'large' } }
+        { type: 'ADD_ITEM', itemId: 'quantum_fries', quantity: 1 }
       ],
-      suggestedItems: ['lunar_lemonade', 'stellar_chocolate_mousse'],
+      suggestedItems: ['large_water', 'lunar_lemonade', 'stellar_chocolate_mousse'],
       confidence: 0.96,
       normalizedIntent: 'Plan a constrained group order',
       actionTrace: [
         { step: 'Extract constraints', detail: 'Detected party size, vegetarian coverage, no-spice preference, and an after-tax budget target.' },
-        { step: 'Solve menu fit', detail: 'Selected one classic entree, two vegetarian-friendly choices, a shareable side, and water while avoiding spicy items.' },
+        { step: 'Solve menu fit', detail: 'Selected one classic entree, two vegetarian-friendly choices, and a shareable side while avoiding spicy items.' },
         { step: 'Budget check', detail: 'Estimated total stays below $60 after tax, so the order satisfies the constraint without manual comparison.' },
-        { step: 'Apply cart plan', detail: 'Cleared the previous cart and built the optimized group order in one transaction.' }
+        { step: 'Ask pairing', detail: 'No drink was requested, so the assistant asks before adding beverages.' }
       ],
-      cartDiff: ['Reset cart for a clean group plan', 'Add 5 items for 4 guests', 'Keep estimated total under $60', 'Avoid spicy menu items'],
+      cartDiff: ['Reset cart for a clean group plan', 'Add 4 food items for 4 guests', 'Keep estimated total under $60', 'Hold drinks until guest confirms'],
       impact: [
         { label: 'People', value: '4' },
         { label: 'Budget', value: '<$60 total' },
-        { label: 'Constraints', value: 'Veg + mild' }
+        { label: 'Drink', value: 'Ask first' }
       ]
     });
   }
@@ -155,23 +211,22 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
           ...(!hasDessert && !hasFries && !hasLemonade ? [{ type: 'UPDATE_MODIFIERS' as const, itemId: currentCart[0]?.id, notes: ['already near-minimum spend'] }] : [])
         ]
       : [
-          { type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1, notes: ['best value protein'] },
-          { type: 'ADD_ITEM', itemId: 'large_water', quantity: 1, modifiers: { size: 'large' } }
+          { type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1, notes: ['best value protein'] }
         ];
     return buildResponse({
       assistantMessage: currentCart.length
         ? 'I optimized the cart for price by cutting lower-priority extras and preserving the core meal.'
-        : 'I built a value-optimized meal under $35 with a strong entree and drink.',
+        : 'I built a value-optimized meal under $35 with a strong entree. Would you like a drink with that?',
       actions: optimizationActions,
-      suggestedItems: ['quantum_fries'],
+      suggestedItems: currentCart.length ? ['quantum_fries'] : ['large_water', 'lunar_lemonade'],
       confidence: 0.91,
       normalizedIntent: 'Optimize cart for budget',
       actionTrace: [
         { step: 'Rank items', detail: 'Separated core meal items from nice-to-have extras and premium drinks.' },
         { step: 'Optimize', detail: 'Reduced spend by cutting optional sides, desserts, or premium drinks while preserving the core meal.' },
-        { step: 'Guardrail', detail: 'Avoided removing the primary meal unless the cart was empty and a new value order was needed.' }
+        { step: 'Guardrail', detail: 'Avoided adding drinks unless the guest confirms a beverage.' }
       ],
-      cartDiff: currentCart.length ? ['Preserve core meal', 'Remove optional side/dessert where present', 'Swap premium drink to water when possible'] : ['Add value entree', 'Add large water', 'Keep order under $35 before tax'],
+      cartDiff: currentCart.length ? ['Preserve core meal', 'Remove optional side/dessert where present', 'Swap premium drink to water when possible'] : ['Add value entree', 'Hold drink until guest confirms', 'Keep order under $35 before tax'],
       impact: [
         { label: 'Goal', value: 'Lower total' },
         { label: 'Kept', value: 'Core meal' },
@@ -182,25 +237,24 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
 
   if (hasAny(lower, ['fastest', 'fast pickup', 'quickest', 'ready fastest', 'shortest wait'])) {
     return buildResponse({
-      assistantMessage: 'I built a fast-pickup order with low-prep items and a refreshing drink.',
+      assistantMessage: 'I built the fastest food order with a low-prep salad. Want me to add a drink, or keep it food-only?',
       actions: [
         { type: 'CLEAR_CART' },
-        { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1, notes: ['fast pickup lane'] },
-        { type: 'ADD_ITEM', itemId: 'lunar_lemonade', quantity: 1 }
+        { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1, notes: ['fast pickup lane'] }
       ],
-      suggestedItems: ['stellar_chocolate_mousse'],
+      suggestedItems: ['lunar_lemonade', 'large_water'],
       confidence: 0.89,
       normalizedIntent: 'Minimize pickup time',
       actionTrace: [
         { step: 'Prioritize speed', detail: 'Selected lighter prep items instead of cooked-to-order sandwiches.' },
-        { step: 'Balance meal', detail: 'Paired the fast entree with a drink so the order still feels complete.' },
-        { step: 'Apply', detail: 'Built a compact pickup-ready cart with fewer kitchen stations involved.' }
+        { step: 'Apply', detail: 'Built a compact pickup-ready cart with fewer kitchen stations involved.' },
+        { step: 'Ask pairing', detail: 'No drink was requested, so the assistant asks before adding one.' }
       ],
-      cartDiff: ['Reset cart for fastest pickup', 'Add Neon Caesar Salad', 'Add Lunar Lemonade'],
+      cartDiff: ['Reset cart for fastest pickup', 'Add Neon Caesar Salad', 'Hold drink until guest confirms'],
       impact: [
         { label: 'Pickup', value: 'Fast lane' },
         { label: 'Stations', value: 'Fewer' },
-        { label: 'Items', value: '2' }
+        { label: 'Drink', value: 'Ask first' }
       ]
     });
   }
@@ -269,13 +323,12 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
 
   if (hasAny(lower, ['surprise me', 'chef pick', "chef's pick", 'best order', 'i trust you'])) {
     return buildResponse({
-      assistantMessage: 'I built a chef-picked order with a signature sandwich, fries, and a bright drink.',
+      assistantMessage: 'I built a chef-picked food order with a signature sandwich and fries. Want me to pair a drink with it?',
       actions: [
         { type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1 },
-        { type: 'ADD_ITEM', itemId: 'quantum_fries', quantity: 1, modifiers: { size: 'regular' } },
-        { type: 'ADD_ITEM', itemId: 'lunar_lemonade', quantity: 1 }
+        { type: 'ADD_ITEM', itemId: 'quantum_fries', quantity: 1, modifiers: { size: 'regular' } }
       ],
-      suggestedItems: ['stellar_chocolate_mousse'],
+      suggestedItems: ['lunar_lemonade', 'large_water', 'stellar_chocolate_mousse'],
       confidence: 0.9,
       normalizedIntent: 'Create a balanced chef-recommended order'
     });
@@ -283,24 +336,22 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
 
   if (hasAny(lower, ['high protein', 'protein lunch', 'post workout', 'post-workout'])) {
     return buildResponse({
-      assistantMessage: 'Built a high-protein lunch that stays under $25 before tax.',
+      assistantMessage: 'Built a high-protein lunch that stays under $25 before tax. Want water or lemonade with it?',
       actions: [
-        { type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1 },
-        { type: 'ADD_ITEM', itemId: 'large_water', quantity: 1, modifiers: { size: 'large' } }
+        { type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1 }
       ],
-      suggestedItems: ['neon_caesar_salad', 'lunar_lemonade'],
+      suggestedItems: ['large_water', 'lunar_lemonade', 'neon_caesar_salad'],
       normalizedIntent: 'Build a high-protein lunch under budget'
     });
   }
 
   if (hasAny(lower, ['under $20', 'under 20', 'budget', 'cheap lunch'])) {
     return buildResponse({
-      assistantMessage: 'Built a clean under-$20 order with a salad and chilled water.',
+      assistantMessage: 'I found a clean under-$20 food option with the Neon Caesar Salad. Would you like to add a drink?',
       actions: [
-        { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1 },
-        { type: 'ADD_ITEM', itemId: 'large_water', quantity: 1 }
+        { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1 }
       ],
-      suggestedItems: ['quantum_fries'],
+      suggestedItems: ['large_water', 'lunar_lemonade', 'quantum_fries'],
       normalizedIntent: 'Build a budget-friendly order'
     });
   }

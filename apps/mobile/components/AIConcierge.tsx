@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { BadgeCheck, Bot, Clock, Code2, Command, Gauge, GitBranch, MessageSquare, ScanSearch, SendHorizonal, Sparkles, Users, Wallet, Zap } from 'lucide-react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { BadgeCheck, Bot, Clock, Code2, Gauge, GitBranch, MessageSquare, ScanSearch, SendHorizonal, Sparkles, Users, Wallet, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from './GlassCard';
 import { useCartStore } from '../store/cartStore';
@@ -10,26 +10,27 @@ import { AIAction } from '../types';
 
 const aiJobs = [
   {
-    label: 'Plan group order',
-    detail: '4 guests / veg / mild / <$60 total',
+    label: 'Plan group',
     prompt: 'Build a group order for 4 people under $60 total, one vegetarian, no spicy items',
     icon: Users
   },
   {
+    label: 'Spicy under $20',
+    prompt: 'I need something spicy but under 20 dollars',
+    icon: Zap
+  },
+  {
     label: 'Optimize budget',
-    detail: 'Lower total without killing the meal',
     prompt: 'Optimize this cart to make it cheaper while keeping a complete meal',
     icon: Wallet
   },
   {
-    label: 'Fastest pickup',
-    detail: 'Smallest kitchen footprint',
+    label: 'Fast pickup',
     prompt: 'Build the fastest pickup order',
     icon: Clock
   },
   {
     label: 'Dietary scan',
-    detail: 'Find safer constrained options',
     prompt: 'Run a dietary scan for safe options',
     icon: ScanSearch
   }
@@ -60,17 +61,17 @@ export function AIConcierge() {
   const lastAIResponse = useCartStore(state => state.lastAIResponse);
   const conversation = useCartStore(state => state.conversation);
   const lastUpdatedAt = useCartStore(state => state.lastUpdatedAt);
-  const suggestedMenuItems = menu.filter(item => lastSuggestedItems.includes(item.id)).slice(0, 3);
+  const suggestedMenuItems = menu.filter(item => lastSuggestedItems.includes(item.id)).slice(0, 4);
   const visibleActions = lastActions.filter(action => action.type !== 'NO_OP').slice(0, 4);
   const actionJson = useMemo(() => JSON.stringify(lastActions.length ? lastActions : [{ type: 'AWAITING_INTENT' }], null, 2), [lastActions]);
   const confidence = Math.round((lastAIResponse?.confidence ?? 0.86) * 100);
   const providerLabel = lastAIResponse ? `${lastAIResponse.provider}/${lastAIResponse.model}` : 'deterministic-demo-parser';
-  const actionTrace = lastAIResponse?.actionTrace || [{ step: 'Awaiting intent', detail: 'The AI center is ready to translate natural language into validated cart actions.' }];
+  const actionTrace = lastAIResponse?.actionTrace || [{ step: 'Ready', detail: 'Tell the AI a goal, constraint, craving, or budget and it will reason against the menu before touching the cart.' }];
   const cartDiff = lastAIResponse?.cartDiff || [];
   const impact = lastAIResponse?.impact || [
-    { label: 'AI jobs', value: '4' },
+    { label: 'Mode', value: 'AI first' },
     { label: 'Cart ops', value: 'Ready' },
-    { label: 'Constraints', value: 'Online' }
+    { label: 'Drinks', value: 'Ask first' }
   ];
   const updatedAt = lastUpdatedAt
     ? new Date(lastUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -119,8 +120,8 @@ export function AIConcierge() {
             <Bot size={23} color="white" />
           </LinearGradient>
           <View className="flex-1">
-            <Text className="text-2xl font-black text-white">AI Command Center</Text>
-            <Text className="mt-1 text-xs font-semibold uppercase tracking-widest text-teal-100">Intent to validated cart actions</Text>
+            <Text className="text-2xl font-black text-white">Talk To The Bistro AI</Text>
+            <Text className="mt-1 text-xs font-semibold uppercase tracking-widest text-teal-100">Menu reasoning before cart mutation</Text>
           </View>
           <View className="items-end">
             <View className="flex-row items-center gap-1 rounded-full bg-emerald-400/15 px-3 py-2">
@@ -131,16 +132,60 @@ export function AIConcierge() {
           </View>
         </View>
 
+        <View className="mb-4 rounded-lg bg-slate-950/45 p-3">
+          <ScrollView className="max-h-96" nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            <View className="gap-3">
+              {conversation.map(chat => {
+                const isUser = chat.role === 'user';
+                return (
+                  <View key={chat.id} className={`rounded-lg px-4 py-3 ${isUser ? 'self-end bg-teal-300/20' : 'self-start bg-white/10'}`} style={{ maxWidth: '88%' }}>
+                    <Text className="text-xs font-black uppercase tracking-widest text-slate-400">{isUser ? 'You' : 'Bistro AI'}</Text>
+                    <Text className="mt-1 text-sm font-semibold leading-5 text-white">{chat.content}</Text>
+                  </View>
+                );
+              })}
+              {loading ? (
+                <View className="self-start rounded-lg bg-white/10 px-4 py-3">
+                  <ActivityIndicator color="#5EEAD4" />
+                </View>
+              ) : null}
+            </View>
+          </ScrollView>
+        </View>
+
+        {suggestedMenuItems.length ? (
+          <View className="mb-4 gap-3 rounded-lg bg-amber-300/10 p-3">
+            <View className="flex-row items-center gap-2">
+              <Sparkles size={14} color="#FCD34D" />
+              <Text className="text-xs font-black uppercase tracking-widest text-amber-100">Options surfaced in chat</Text>
+            </View>
+            <View className="gap-2">
+              {suggestedMenuItems.map(item => (
+                <Pressable key={item.id} onPress={() => addItem(item)} className="flex-row items-center gap-3 rounded-lg bg-black/25 p-2">
+                  <Image source={{ uri: item.image }} className="h-16 w-16 rounded-lg bg-slate-900" />
+                  <View className="flex-1">
+                    <Text className="font-black text-white">{item.name}</Text>
+                    <Text className="mt-1 text-xs font-semibold text-slate-300">${item.price.toFixed(2)} · {item.tags.slice(0, 2).join(' · ')}</Text>
+                  </View>
+                  <View className="rounded-full bg-teal-300 px-3 py-2">
+                    <Text className="text-xs font-black text-slate-950">Choose</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         <LinearGradient colors={['rgba(20,184,166,0.22)', 'rgba(249,115,22,0.14)', 'rgba(15,23,42,0.65)']} className="mb-4 rounded-lg p-3">
           <View className="mb-3 flex-row items-center gap-2">
             <Zap size={17} color="#FDBA74" />
-            <Text className="text-xs font-black uppercase tracking-widest text-orange-100">Ask for an outcome</Text>
+            <Text className="text-xs font-black uppercase tracking-widest text-orange-100">Ask naturally</Text>
           </View>
           <View className="flex-row items-center gap-3 rounded-lg bg-black/40 px-4 py-3">
             <TextInput
               value={message}
               onChangeText={setMessage}
-              placeholder="Feed 4 under $60, veg + mild..."
+              placeholder="Something spicy under $20..."
               placeholderTextColor="#94A3B8"
               className="min-h-10 flex-1 text-base font-semibold text-white"
               returnKeyType="send"
@@ -154,22 +199,19 @@ export function AIConcierge() {
           </View>
         </LinearGradient>
 
-        <View className="mb-4 flex-row flex-wrap justify-between gap-y-3">
-          {aiJobs.map(job => {
-            const Icon = job.icon;
-            return (
-              <Pressable key={job.label} onPress={() => submit(job.prompt)} className="overflow-hidden rounded-lg bg-white/10" style={{ width: '49%' }}>
-                <LinearGradient colors={['rgba(20,184,166,0.16)', 'rgba(15,23,42,0.35)']} className="min-h-28 p-3">
-                  <View className="mb-3 h-9 w-9 items-center justify-center rounded-lg bg-black/25">
-                    <Icon size={18} color="#5EEAD4" />
-                  </View>
-                  <Text className="text-sm font-black text-white">{job.label}</Text>
-                  <Text className="mt-1 text-xs font-semibold leading-4 text-slate-300">{job.detail}</Text>
-                </LinearGradient>
-              </Pressable>
-            );
-          })}
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+          <View className="flex-row gap-2 pr-4">
+            {aiJobs.map(job => {
+              const Icon = job.icon;
+              return (
+                <Pressable key={job.label} onPress={() => submit(job.prompt)} className="flex-row items-center gap-2 rounded-full bg-white/10 px-3 py-2">
+                  <Icon size={14} color="#5EEAD4" />
+                  <Text className="text-xs font-black text-slate-100">{job.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
 
         <View className="mb-4 flex-row gap-2">
           {impact.map(item => (
@@ -181,23 +223,18 @@ export function AIConcierge() {
         </View>
 
         <View className="mb-4 gap-3 rounded-lg bg-black/25 p-4">
-          <View className="flex-row items-center gap-2">
-            <Command size={15} color="#5EEAD4" />
-            <Text className="text-xs font-black uppercase tracking-widest text-teal-100">Current AI transaction</Text>
-          </View>
-          <Text className="text-base font-black leading-6 text-white">{lastUserIntent}</Text>
-          <Text className="leading-6 text-slate-200">{lastAssistantMessage}</Text>
-          <View className="flex-row flex-wrap gap-2">
-            <View className="flex-row items-center gap-1 rounded-full bg-white/10 px-3 py-2">
-              <Gauge size={13} color="#FCD34D" />
-              <Text className="text-xs font-black text-amber-100">{providerLabel}</Text>
-            </View>
+          <View className="flex-row flex-wrap items-center gap-2">
+            <Gauge size={14} color="#FCD34D" />
+            <Text className="text-xs font-black text-amber-100">{providerLabel}</Text>
             {lastAIResponse?.normalizedIntent ? (
               <View className="rounded-full bg-white/10 px-3 py-2">
                 <Text className="text-xs font-black text-slate-100">{lastAIResponse.normalizedIntent}</Text>
               </View>
             ) : null}
           </View>
+          <Text className="text-xs font-black uppercase tracking-widest text-teal-100">Latest decision</Text>
+          <Text className="text-sm font-black leading-5 text-white">{lastUserIntent}</Text>
+          <Text className="text-sm leading-5 text-slate-200">{lastAssistantMessage}</Text>
           {visibleActions.length ? (
             <View className="flex-row flex-wrap gap-2">
               {visibleActions.map((action, index) => (
@@ -209,27 +246,11 @@ export function AIConcierge() {
           ) : null}
         </View>
 
-        {suggestedMenuItems.length ? (
-          <View className="mb-4 gap-2 rounded-lg bg-amber-300/10 p-3">
-            <View className="flex-row items-center gap-2">
-              <Sparkles size={14} color="#FCD34D" />
-              <Text className="text-xs font-black uppercase tracking-widest text-amber-100">Suggested next</Text>
-            </View>
-            <View className="flex-row flex-wrap gap-2">
-              {suggestedMenuItems.map(item => (
-                <Pressable key={item.id} onPress={() => addItem(item)} className="rounded-full bg-amber-200/15 px-3 py-2">
-                  <Text className="text-xs font-bold text-amber-50">{item.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
         <View className="mb-3 flex-row rounded-lg bg-slate-950/65 p-1">
           {[
             { id: 'plan', label: 'Plan', icon: GitBranch },
             { id: 'json', label: 'JSON', icon: Code2 },
-            { id: 'chat', label: 'Chat', icon: MessageSquare }
+            { id: 'chat', label: 'History', icon: MessageSquare }
           ].map(panel => {
             const selected = activePanel === panel.id;
             const Icon = panel.icon;
@@ -269,16 +290,14 @@ export function AIConcierge() {
           ) : null}
 
           {activePanel === 'chat' ? (
-            <ScrollView className="max-h-52" nestedScrollEnabled>
-              <View className="gap-2">
-                {conversation.map(chat => (
-                  <View key={chat.id} className={`rounded-lg px-3 py-2 ${chat.role === 'user' ? 'bg-teal-300/15' : 'bg-white/10'}`}>
-                    <Text className="text-xs font-black uppercase tracking-widest text-slate-400">{chat.role === 'user' ? 'You' : 'Assistant'}</Text>
-                    <Text className="mt-1 text-sm font-semibold leading-5 text-white">{chat.content}</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
+            <View className="gap-2">
+              {conversation.map(chat => (
+                <View key={chat.id} className={`rounded-lg px-3 py-2 ${chat.role === 'user' ? 'bg-teal-300/15' : 'bg-white/10'}`}>
+                  <Text className="text-xs font-black uppercase tracking-widest text-slate-400">{chat.role === 'user' ? 'You' : 'Assistant'}</Text>
+                  <Text className="mt-1 text-sm font-semibold leading-5 text-white">{chat.content}</Text>
+                </View>
+              ))}
+            </View>
           ) : null}
         </View>
       </View>

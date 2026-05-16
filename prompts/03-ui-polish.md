@@ -8,10 +8,12 @@ Design direction:
 - glass cards
 - neon cyan and violet gradients
 - premium rounded cards
-- visible AI concierge
+- AI chat as the default home screen
+- manual menu behind a secondary toggle
+- suggested item cards rendered inside the chat flow
 - live cart dock
 - high-quality menu cards
-- outcome-based AI job cards
+- compact outcome-based AI job shortcuts
 - impact metrics showing budget, constraints, speed, and safety results
 - AI filter indicator
 - changed cart item highlighting
