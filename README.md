@@ -9,7 +9,7 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 - Premium mobile UI and interaction design
 - AI-first home screen with the manual menu behind a secondary toggle
 - AI-driven outcome planning through structured JSON actions
-- AI-only ordering jobs for group planning, budget optimization, fastest pickup, and dietary scans
+- AI-only ordering jobs for menu narrowing, group planning, budget optimization, fastest pickup, and dietary scans
 - In-chat item option cards so guests can choose surfaced recommendations without browsing the full menu
 - Visible AI transaction trace: normalized intent, confidence, provider/model, impact metrics, cart diff, and JSON action preview
 - Reliable cart state management through both UI and AI
@@ -124,6 +124,18 @@ Without `OPENAI_API_KEY`, the backend automatically uses the deterministic parse
 ## Demo Commands
 
 Try these in the AI assistant:
+
+```txt
+I want something light or healthy
+```
+
+The assistant scans the full menu, narrows the choice to two options, and asks one useful follow-up: light and fast, or healthy and filling.
+
+```txt
+healthy and filling
+```
+
+The assistant resolves the follow-up by adding the Veggie Power Bowl and asking before adding a drink.
 
 ```txt
 Build a group order for 4 people under $60 total, one vegetarian, no spicy items
@@ -243,14 +255,15 @@ The prompts used during development are included in `/prompts`.
 ## Loom Walkthrough Suggested Flow
 
 1. Show that the app opens directly into AI chat, with the manual menu available as a secondary toggle.
-2. Run: “I need something spicy and under 10 dollars.” Show the assistant refusing the bad match and surfacing options in chat.
-3. Run: “I need something spicy but under 20 dollars.” Show the sandwich added and the drink follow-up question.
-4. Run: “clear the entire order” and “remove all the items” to show natural cart control.
-5. Run the “Plan group” shortcut and show budget, vegetarian, mild, and drink guardrails.
-6. Open the JSON panel and show validated structured actions.
-7. Toggle to the menu briefly to show manual fallback, then return to AI.
-8. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
-9. Explain prompt workflow in `/prompts`.
+2. Run: “I want something light or healthy.” Show the AI narrowing eight menu items to two choices.
+3. Run: “healthy and filling.” Show the assistant adding the Veggie Power Bowl and asking before drinks.
+4. Run: “I need something spicy and under 10 dollars.” Show the assistant refusing the bad match and surfacing options in chat.
+5. Run: “I need something spicy but under 20 dollars.” Show the sandwich added and the drink follow-up question.
+6. Run the “Plan group” shortcut and show budget, vegetarian, mild, and drink guardrails.
+7. Open the JSON panel and show validated structured actions.
+8. Toggle to the menu briefly to show manual fallback, then return to AI.
+9. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
+10. Explain prompt workflow in `/prompts`.
 
 ## Engineering Notes
 

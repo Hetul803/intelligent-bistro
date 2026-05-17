@@ -10,6 +10,11 @@ import { AIAction } from '../types';
 
 const aiJobs = [
   {
+    label: 'Light or healthy',
+    prompt: 'I want something light or healthy',
+    icon: Sparkles
+  },
+  {
     label: 'Plan group',
     prompt: 'Build a group order for 4 people under $60 total, one vegetarian, no spicy items',
     icon: Users
@@ -69,8 +74,8 @@ export function AIConcierge() {
   const actionTrace = lastAIResponse?.actionTrace || [{ step: 'Ready', detail: 'Tell the AI a goal, constraint, craving, or budget and it will reason against the menu before touching the cart.' }];
   const cartDiff = lastAIResponse?.cartDiff || [];
   const impact = lastAIResponse?.impact || [
-    { label: 'Mode', value: 'AI first' },
-    { label: 'Cart ops', value: 'Ready' },
+    { label: 'Menu scan', value: '8 items' },
+    { label: 'Manual taps', value: '0' },
     { label: 'Drinks', value: 'Ask first' }
   ];
   const updatedAt = lastUpdatedAt
@@ -120,8 +125,8 @@ export function AIConcierge() {
             <Bot size={23} color="white" />
           </LinearGradient>
           <View className="flex-1">
-            <Text className="text-2xl font-black text-white">Talk To The Bistro AI</Text>
-            <Text className="mt-1 text-xs font-semibold uppercase tracking-widest text-teal-100">Menu reasoning before cart mutation</Text>
+            <Text className="text-2xl font-black text-white">AI Order Agent</Text>
+            <Text className="mt-1 text-xs font-semibold uppercase tracking-widest text-teal-100">Tell it the outcome, skip the scan</Text>
           </View>
           <View className="items-end">
             <View className="flex-row items-center gap-1 rounded-full bg-emerald-400/15 px-3 py-2">
@@ -157,7 +162,7 @@ export function AIConcierge() {
           <View className="mb-4 gap-3 rounded-lg bg-amber-300/10 p-3">
             <View className="flex-row items-center gap-2">
               <Sparkles size={14} color="#FCD34D" />
-              <Text className="text-xs font-black uppercase tracking-widest text-amber-100">Options surfaced in chat</Text>
+              <Text className="text-xs font-black uppercase tracking-widest text-amber-100">AI narrowed the menu</Text>
             </View>
             <View className="gap-2">
               {suggestedMenuItems.map(item => (
@@ -166,6 +171,7 @@ export function AIConcierge() {
                   <View className="flex-1">
                     <Text className="font-black text-white">{item.name}</Text>
                     <Text className="mt-1 text-xs font-semibold text-slate-300">${item.price.toFixed(2)} · {item.tags.slice(0, 2).join(' · ')}</Text>
+                    <Text className="mt-1 text-xs font-semibold text-teal-100">{item.spiceLevel ? `heat ${item.spiceLevel}` : 'mild'} · {item.category}</Text>
                   </View>
                   <View className="rounded-full bg-teal-300 px-3 py-2">
                     <Text className="text-xs font-black text-slate-950">Choose</Text>
@@ -185,7 +191,7 @@ export function AIConcierge() {
             <TextInput
               value={message}
               onChangeText={setMessage}
-              placeholder="Something spicy under $20..."
+              placeholder="I want something light and healthy..."
               placeholderTextColor="#94A3B8"
               className="min-h-10 flex-1 text-base font-semibold text-white"
               returnKeyType="send"

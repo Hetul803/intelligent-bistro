@@ -44,13 +44,13 @@ function createMessage(role: AIChatMessage['role'], content: string, meta?: AICh
 
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
-  lastAssistantMessage: 'Tell me what you want, and I will reason through the menu before changing the cart.',
+  lastAssistantMessage: 'Give me a goal like light, spicy, cheap, fast, group, or dietary-safe. I will compare the menu and only ask when the choice matters.',
   lastUserIntent: 'Awaiting first intent',
   lastActions: [],
   lastSuggestedItems: [],
   lastAIResponse: null,
   conversation: [
-    createMessage('assistant', 'Hi, I am the Bistro AI. Tell me a craving, budget, dietary rule, or pickup goal. If I need to choose between items, I will show options here before I act.')
+    createMessage('assistant', 'Skip browsing. Tell me the outcome: light and healthy, spicy under $20, fastest pickup, feed a group, or allergy-safe. I will compare the menu, narrow the choices, and ask before adding drinks.')
   ],
   lastUpdatedAt: null,
   activeFilter: null,

@@ -11,6 +11,7 @@ Design direction:
 - AI chat as the default home screen
 - manual menu behind a secondary toggle
 - suggested item cards rendered inside the chat flow
+- AI menu-narrowing flows that compare options before cart mutation
 - live cart dock
 - high-quality menu cards
 - compact outcome-based AI job shortcuts

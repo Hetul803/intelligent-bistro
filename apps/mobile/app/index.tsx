@@ -87,7 +87,7 @@ export default function HomeScreen() {
         </LinearGradient>
         <View className="flex-1">
           <Text className="text-2xl font-black text-white">Intelligent Bistro</Text>
-          <Text className="mt-1 text-xs font-black uppercase tracking-widest text-teal-100">AI is the front door</Text>
+          <Text className="mt-1 text-xs font-black uppercase tracking-widest text-teal-100">Tell the AI, then order</Text>
         </View>
         <View className="flex-row gap-2">
           <Pressable onPress={() => setViewMode('ai')} className={`flex-row items-center gap-2 rounded-full px-3 py-2 ${viewMode === 'ai' ? 'bg-teal-300' : 'bg-white/10'}`}>
@@ -103,7 +103,7 @@ export default function HomeScreen() {
       <View className="mt-4 flex-row flex-wrap gap-2">
         <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
           <Bot size={15} color="#5EEAD4" />
-          <Text className="text-xs font-black text-teal-100">CHAT-FIRST ORDERING</Text>
+          <Text className="text-xs font-black text-teal-100">SKIPS MENU SCAN</Text>
         </View>
         <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
           <ShoppingBag size={15} color="#FCD34D" />

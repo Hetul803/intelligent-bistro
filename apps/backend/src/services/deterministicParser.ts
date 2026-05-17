@@ -142,8 +142,8 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
         ],
         cartDiff: ['Add Spicy Chicken Sandwich', 'Hold drinks until guest confirms'],
         impact: [
-          { label: 'Match', value: 'Spicy' },
-          { label: 'Price', value: `$${spicyChicken.price.toFixed(2)}` },
+          { label: 'Menu scan', value: '8 items' },
+          { label: 'Best match', value: `$${spicyChicken.price.toFixed(2)}` },
           { label: 'Drink', value: 'Ask first' }
         ]
       });
@@ -164,8 +164,71 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
       ],
       cartDiff: ['No cart change', 'Surface closest spicy option'],
       impact: [
-        { label: 'Match', value: 'None' },
+        { label: 'Menu scan', value: '8 items' },
+        { label: 'Bad match', value: 'Blocked' },
         { label: 'Closest', value: '$14.50' },
+      ]
+    });
+  }
+
+  if (hasAny(lower, ['light and fast', 'fast and light', 'lightest option', 'lightest'])) {
+    return buildResponse({
+      assistantMessage: 'I picked the Neon Caesar Salad because it is the lightest fast-prep option. Want a drink with it?',
+      actions: [{ type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 1, notes: ['light and fast'] }],
+      suggestedItems: ['large_water', 'lunar_lemonade'],
+      confidence: 0.94,
+      normalizedIntent: 'Choose light and fast option',
+      actionTrace: [
+        { step: 'Resolve choice', detail: 'Guest chose the lighter/faster branch from the AI comparison.' },
+        { step: 'Apply', detail: 'Added the Neon Caesar Salad and held drinks for confirmation.' }
+      ],
+      cartDiff: ['Add Neon Caesar Salad', 'Hold drink until guest confirms'],
+      impact: [
+        { label: 'Choice', value: 'Light' },
+        { label: 'Prep', value: 'Fast' },
+        { label: 'Drink', value: 'Ask first' }
+      ]
+    });
+  }
+
+  if (hasAny(lower, ['filling and healthy', 'healthy and filling', 'more filling', 'filling option'])) {
+    return buildResponse({
+      assistantMessage: 'I picked the Veggie Power Bowl because it is the healthier filling option. Want water or lemonade with it?',
+      actions: [{ type: 'ADD_ITEM', itemId: 'veggie_power_bowl', quantity: 1, notes: ['healthy and filling'] }],
+      suggestedItems: ['large_water', 'lunar_lemonade'],
+      confidence: 0.94,
+      normalizedIntent: 'Choose healthy and filling option',
+      actionTrace: [
+        { step: 'Resolve choice', detail: 'Guest chose the filling/healthy branch from the AI comparison.' },
+        { step: 'Apply', detail: 'Added the Veggie Power Bowl and held drinks for confirmation.' }
+      ],
+      cartDiff: ['Add Veggie Power Bowl', 'Hold drink until guest confirms'],
+      impact: [
+        { label: 'Choice', value: 'Filling' },
+        { label: 'Tags', value: 'Healthy' },
+        { label: 'Drink', value: 'Ask first' }
+      ]
+    });
+  }
+
+  if (hasAny(lower, ['light', 'healthy', 'not heavy', 'fresh', 'clean meal', 'clean lunch'])) {
+    return buildResponse({
+      assistantMessage: 'I narrowed the menu to two good fits: Neon Caesar is the lightest and fastest, while Veggie Power Bowl is healthier and more filling. Which direction do you want?',
+      actions: [{ type: 'SHOW_FILTERED_ITEMS', filter: 'vegetarian' }],
+      needsClarification: true,
+      clarificationQuestion: 'Choose light and fast, or filling and healthy?',
+      suggestedItems: ['neon_caesar_salad', 'veggie_power_bowl'],
+      confidence: 0.92,
+      normalizedIntent: 'Compare healthy and light menu options',
+      actionTrace: [
+        { step: 'Read goal', detail: 'Detected a vague health or lightness preference rather than a direct item request.' },
+        { step: 'Compare menu', detail: 'Compared lighter bowls and vegetarian-friendly items so the guest does not need to scan every card.' },
+        { step: 'Clarify tradeoff', detail: 'Asked one decision question because the best answer depends on whether speed or fullness matters more.' }
+      ],
+      cartDiff: ['No cart change', 'Surface Neon Caesar Salad', 'Surface Veggie Power Bowl'],
+      impact: [
+        { label: 'Menu scan', value: '8 items' },
+        { label: 'Choices', value: '2' },
         { label: 'Cart ops', value: '0' }
       ]
     });
@@ -192,7 +255,7 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
       ],
       cartDiff: ['Reset cart for a clean group plan', 'Add 4 food items for 4 guests', 'Keep estimated total under $60', 'Hold drinks until guest confirms'],
       impact: [
-        { label: 'People', value: '4' },
+        { label: 'Manual scan', value: 'Skipped' },
         { label: 'Budget', value: '<$60 total' },
         { label: 'Drink', value: 'Ask first' }
       ]
