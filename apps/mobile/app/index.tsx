@@ -1,157 +1,600 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Image, ImageBackground, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bot, Filter, MessageCircle, ShoppingBag, Utensils, X } from 'lucide-react-native';
+import { Clock3, MessageCircle, ReceiptText, SendHorizonal, ShoppingBag, Sparkles, UtensilsCrossed } from 'lucide-react-native';
 import { menu } from '../constants/menu';
-import { Category } from '../types';
-import { MenuCard } from '../components/MenuCard';
-import { AIConcierge } from '../components/AIConcierge';
-import { CartDock } from '../components/CartDock';
+import { Category, MenuItem, PlacedOrder } from '../types';
+import { sendAIOrder } from '../services/api';
 import { useCartStore } from '../store/cartStore';
 
-const categories: Array<Category | 'All'> = ['All', 'Sandwiches', 'Bowls', 'Sides', 'Drinks', 'Desserts'];
+type Tab = 'concierge' | 'order' | 'menu' | 'cart' | 'orders';
+type MenuFilter = 'All' | Category;
+
+const gold = '#D9A441';
+const paleGold = '#F1C46D';
+const serif = { fontFamily: 'Georgia' };
+const menuFilters: MenuFilter[] = ['All', 'Mains', 'Sides', 'Drinks', 'Desserts'];
 
 export default function HomeScreen() {
-  const [category, setCategory] = useState<Category | 'All'>('All');
-  const [viewMode, setViewMode] = useState<'ai' | 'menu'>('ai');
+  const [tab, setTab] = useState<Tab>('concierge');
+  const [filter, setFilter] = useState<MenuFilter>('All');
+  const [message, setMessage] = useState('');
+  const [focused, setFocused] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [addedMessage, setAddedMessage] = useState<string | null>(null);
   const { width } = useWindowDimensions();
-  const isWide = width >= 960;
-  const activeFilter = useCartStore(state => state.activeFilter);
-  const clearFilter = useCartStore(state => state.clearFilter);
+  const isWide = width >= 720;
+
+  const items = useCartStore(state => state.items);
+  const addItem = useCartStore(state => state.addItem);
+  const total = useCartStore(state => state.total);
+  const subtotal = useCartStore(state => state.subtotal);
+  const tax = useCartStore(state => state.tax);
+  const updateQuantity = useCartStore(state => state.updateQuantity);
+  const removeItem = useCartStore(state => state.removeItem);
+  const placeOrder = useCartStore(state => state.placeOrder);
+  const orders = useCartStore(state => state.orders);
+  const applyAIResponse = useCartStore(state => state.applyAIResponse);
+  const conversation = useCartStore(state => state.conversation);
+  const lastAssistantMessage = useCartStore(state => state.lastAssistantMessage);
   const lastSuggestedItems = useCartStore(state => state.lastSuggestedItems);
-  const itemCount = useCartStore(state => state.items.reduce((sum, item) => sum + item.quantity, 0));
 
-  const visibleMenu = useMemo(() => {
-    const activeCategory = categories.find(cat => cat !== 'All' && cat.toLowerCase() === activeFilter?.toLowerCase());
-    let items = category === 'All' ? menu : menu.filter(item => item.category === category);
-    if (activeCategory && activeCategory !== 'All') items = items.filter(item => item.category === activeCategory);
-    if (activeFilter === 'vegetarian') items = items.filter(item => item.tags.includes('vegetarian'));
-    if (activeFilter === 'gluten-free') items = items.filter(item => item.tags.includes('gluten-free'));
-    if (activeFilter === 'popular') items = items.filter(item => item.tags.includes('popular'));
-    return items;
-  }, [category, activeFilter]);
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const recommended = menu.filter(item => ['stellar_chocolate_mousse', 'espresso_martini'].includes(item.id));
+  const featured = menu.filter(item => ['stellar_chocolate_mousse', 'espresso_martini', 'classic_bistro_burger', 'spicy_chicken_sandwich'].includes(item.id));
+  const visibleMenu = filter === 'All' ? menu : menu.filter(item => item.category === filter);
+  const aiSuggested = useMemo(() => {
+    const fromAI = menu.filter(item => lastSuggestedItems.includes(item.id));
+    return fromAI.length ? fromAI.slice(0, 2) : recommended;
+  }, [lastSuggestedItems]);
 
-  const menuSection = (
-    <View>
-      <View className="mb-4 flex-row items-center justify-between gap-4">
-        <View>
-          <Text className="text-2xl font-black text-white">Menu</Text>
-          <Text className="mt-1 text-sm font-semibold text-slate-400">{visibleMenu.length} items available when you want to browse manually</Text>
+  const askAI = async (override?: string) => {
+    const text = (override || message).trim();
+    if (!text || loading) return;
+    setLoading(true);
+    setConfirmed(false);
+    setTab('order');
+    try {
+      const response = await sendAIOrder(text, items);
+      applyAIResponse(response, text);
+      setMessage('');
+      setAddedMessage('AI built your order. Review customizations or approve it.');
+      setTimeout(() => setAddedMessage(null), 2600);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const notifyAdded = (item: MenuItem) => {
+    addItem(item);
+    setAddedMessage(`${item.name} added to cart`);
+    setTimeout(() => setAddedMessage(null), 2200);
+  };
+
+  const checkout = () => {
+    const placed = placeOrder();
+    if (placed) {
+      setConfirmed(true);
+      setTab('orders');
+    }
+  };
+
+  const renderContent = () => {
+    if (tab === 'order') {
+      return (
+        <OrderScreen
+          message={message}
+          setMessage={setMessage}
+          focused={focused}
+          setFocused={setFocused}
+          loading={loading}
+          askAI={askAI}
+          conversation={conversation}
+          suggested={aiSuggested}
+          addItem={notifyAdded}
+          items={items}
+          total={total()}
+          itemCount={itemCount}
+          checkout={checkout}
+          lastAssistantMessage={lastAssistantMessage}
+          updateQuantity={updateQuantity}
+          removeItem={removeItem}
+        />
+      );
+    }
+    if (tab === 'menu') {
+      return <MenuScreen filter={filter} setFilter={setFilter} visibleMenu={visibleMenu} addItem={notifyAdded} width={width} />;
+    }
+    if (tab === 'cart') {
+      return <CartScreen items={items} total={total()} itemCount={itemCount} askAI={() => setTab('order')} checkout={checkout} updateQuantity={updateQuantity} removeItem={removeItem} />;
+    }
+    if (tab === 'orders') {
+      return <OrdersScreen confirmed={confirmed} orders={orders} />;
+    }
+    return <ConciergeHome askAI={askAI} recommended={recommended} featured={featured} addItem={notifyAdded} goOrder={() => setTab('order')} />;
+  };
+
+  return (
+    <LinearGradient colors={['#1F1F23', '#17171A']} className="flex-1">
+      <SafeAreaView className="flex-1">
+        <View className="flex-1 bg-[#050505]" style={{ alignSelf: 'center', maxWidth: isWide ? 420 : undefined, width: '100%' }}>
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 92 }}>
+            {renderContent()}
+          </ScrollView>
+          {addedMessage ? (
+            <View className="absolute left-4 right-4 bottom-24 rounded-2xl border border-[#D9A441]/40 bg-[#17120A] px-4 py-3">
+              <Text className="text-center font-black text-[#F1C46D]">{addedMessage}</Text>
+            </View>
+          ) : null}
+          <BottomTabs tab={tab} setTab={setTab} itemCount={itemCount} />
         </View>
-        <View className="rounded-full bg-white/10 px-3 py-2">
-          <Text className="text-xs font-black text-white">{itemCount} IN ORDER</Text>
+      </SafeAreaView>
+    </LinearGradient>
+  );
+}
+
+function Orb({ size = 88 }: { size?: number }) {
+  const drift = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(drift, { toValue: 1, duration: 2600, useNativeDriver: true }),
+        Animated.timing(drift, { toValue: 0, duration: 2600, useNativeDriver: true })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [drift]);
+
+  const translateY = drift.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+  const translateX = drift.interpolate({ inputRange: [0, 1], outputRange: [-3, 4] });
+  const scale = drift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] });
+
+  return (
+    <Animated.View className="items-center justify-center" style={{ width: size, height: size, transform: [{ translateY }, { translateX }, { scale }] }}>
+      <View className="absolute rounded-full bg-[#241C10]" style={{ width: size, height: size, opacity: 0.88 }} />
+      <View className="absolute rounded-full bg-[#4B3515]" style={{ width: size * 0.62, height: size * 0.62 }} />
+      <LinearGradient colors={['#FFD889', '#D79B39']} className="rounded-full" style={{ width: size * 0.46, height: size * 0.46 }} />
+      <View className="absolute rounded-full bg-white/25" style={{ left: size * 0.32, top: size * 0.28, width: size * 0.2, height: size * 0.2 }} />
+    </Animated.View>
+  );
+}
+
+function ConciergeHome({ askAI, recommended, featured, addItem, goOrder }: { askAI: (prompt: string) => void; recommended: MenuItem[]; featured: MenuItem[]; addItem: (item: MenuItem) => void; goOrder: () => void }) {
+  return (
+    <View className="px-4 pt-9">
+      <View className="items-center">
+        <View className="mb-4 rounded-full bg-[#120F0A]" style={{ shadowColor: gold, shadowOpacity: 0.12, shadowRadius: 60 }}>
+          <Orb size={148} />
         </View>
+        <Text className="text-base font-semibold text-neutral-400">Good evening</Text>
+        <Text className="mt-1 text-center text-4xl font-black leading-tight text-white" style={serif}>What would you like tonight?</Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
-        <View className="flex-row gap-2 pr-5">
-          {categories.map(cat => {
-            const selected = category === cat;
-            return (
-              <Pressable key={cat} onPress={() => setCategory(cat)} className={`rounded-full px-4 py-3 ${selected ? 'bg-teal-300' : 'bg-white/10'}`}>
-                <Text className={`font-black ${selected ? 'text-slate-950' : 'text-slate-100'}`}>{cat}</Text>
-              </Pressable>
-            );
-          })}
+      <View className="mt-6 gap-3">
+        {[
+          'Add two spicy chicken sandwiches',
+          'Build me a healthy lunch',
+          'Make my burger vegetarian',
+          'What pairs well with truffle fries?'
+        ].map(prompt => (
+          <Pressable key={prompt} onPress={() => askAI(prompt)} className="self-start rounded-full border border-white/10 bg-white/[0.06] px-4 py-2.5">
+            <Text className="text-sm font-black text-neutral-300"><Text style={{ color: gold }}>✣ </Text>{prompt}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Pressable onPress={goOrder} className="mt-7 overflow-hidden rounded-2xl">
+        <LinearGradient colors={['#C8923C', '#F1C46D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} className="flex-row items-center justify-center gap-3 py-5">
+          <Text className="text-base font-black text-black">Order with AI</Text>
+          <Text className="text-xl text-black">›</Text>
+        </LinearGradient>
+      </Pressable>
+
+      <SectionHeader title="AI Recommends" icon="↗" />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="flex-row gap-3 pr-4">
+          {recommended.map(item => <LargeDishCard key={item.id} item={item} onAdd={() => addItem(item)} />)}
         </View>
       </ScrollView>
 
-      {activeFilter ? (
-        <View className="mb-4 flex-row items-center justify-between gap-3 rounded-lg bg-teal-300/10 p-4">
-          <View className="flex-row flex-1 items-center gap-2">
-            <Filter size={16} color="#5EEAD4" />
-            <Text className="font-semibold text-teal-100">AI filter: {activeFilter}</Text>
+      <SectionHeader title="Featured Dishes" icon="☆" />
+      <View className="flex-row flex-wrap justify-between gap-y-3">
+        {featured.map(item => <FeaturedCard key={item.id} item={item} onAdd={() => addItem(item)} />)}
+      </View>
+    </View>
+  );
+}
+
+function OrderScreen(props: {
+  message: string;
+  setMessage: (value: string) => void;
+  focused: boolean;
+  setFocused: (value: boolean) => void;
+  loading: boolean;
+  askAI: (prompt?: string) => void;
+  conversation: Array<{ id: string; role: 'user' | 'assistant'; content: string }>;
+  suggested: MenuItem[];
+  addItem: (item: MenuItem) => void;
+  items: Array<MenuItem & { quantity: number; modifiers?: Record<string, unknown>; notes?: string[] }>;
+  total: number;
+  itemCount: number;
+  checkout: () => void;
+  lastAssistantMessage: string;
+  updateQuantity: (id: string, quantity: number) => void;
+  removeItem: (id: string) => void;
+}) {
+  const quick = ['I want something spicy', 'Healthy lunch under 600 cal', 'Surprise me with dessert'];
+  const hasConversation = props.conversation.length > 1;
+  return (
+    <View className="min-h-screen">
+      <View className="border-b border-white/10 px-4 py-6">
+        <View className="flex-row items-center gap-3">
+          <Orb size={58} />
+          <View>
+            <Text className="text-lg font-black text-white">AI Concierge</Text>
+            <Text className="text-xs font-bold text-emerald-400">● Online</Text>
           </View>
-          <Pressable onPress={clearFilter} className="rounded-full bg-white/10 p-2">
-            <X size={15} color="white" />
+        </View>
+      </View>
+
+      <View className="px-4 py-7">
+        {!hasConversation ? (
+          <View className="items-center">
+            <Orb size={104} />
+            <Text className="mt-5 text-center text-3xl font-black leading-tight text-white" style={serif}>Welcome to The Intelligent Bistro</Text>
+            <Text className="mt-3 max-w-[300px] text-center text-base leading-6 text-neutral-400">Tell me what you would like to eat. I understand natural language, dietary preferences, and pairings.</Text>
+            <View className="mt-6 gap-3">
+              {quick.map(prompt => (
+                <Pressable key={prompt} onPress={() => props.askAI(prompt)} className="rounded-full border border-white/10 bg-white/[0.07] px-4 py-2.5">
+                  <Text className="text-sm font-black text-neutral-200"><Text style={{ color: gold }}>✣ </Text>{prompt}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View className="gap-3">
+            {props.conversation.slice(-6).map(chat => (
+              <View key={chat.id} className={`max-w-[86%] rounded-2xl px-4 py-3 ${chat.role === 'user' ? 'self-end bg-[#D9A441]' : 'self-start bg-white/[0.08]'}`}>
+                <Text className={`text-sm font-semibold leading-5 ${chat.role === 'user' ? 'text-black' : 'text-white'}`}>{chat.content}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {props.items.length ? (
+          <View className="mt-6 rounded-2xl border border-white/10 bg-white/[0.07] p-4">
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-lg font-black text-white">Current Order</Text>
+              <Text className="font-black text-[#F1C46D]">${props.total.toFixed(2)}</Text>
+            </View>
+            <View className="gap-3">
+              {props.items.map(item => (
+                <OrderLine key={item.id} item={item} updateQuantity={props.updateQuantity} removeItem={props.removeItem} />
+              ))}
+            </View>
+            <View className="mt-4 rounded-2xl border border-[#D9A441]/20 bg-[#D9A441]/10 p-3">
+              <Text className="font-black text-[#F1C46D]">Want to customize it?</Text>
+              <Text className="mt-1 text-xs leading-5 text-neutral-300">Ask me to remove an ingredient, add a side, pair a drink, or send it as-is.</Text>
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {['remove sauce', 'add ranch', 'pair a drink'].map(prompt => (
+                  <Pressable key={prompt} onPress={() => props.askAI(prompt)} className="rounded-full bg-white/10 px-3 py-2">
+                    <Text className="text-xs font-black text-neutral-200">{prompt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <Pressable onPress={props.checkout} className="mt-4 overflow-hidden rounded-2xl">
+              <LinearGradient colors={['#C8923C', '#F1C46D']} className="items-center py-4">
+                <Text className="font-black text-black">Approve AI Order</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {!props.items.length && hasConversation ? (
+          <View className="mt-5 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+            <Text className="text-base font-black text-white">AI Suggests</Text>
+            <Text className="mt-2 text-sm leading-5 text-neutral-400">{props.lastAssistantMessage}</Text>
+            <View className="mt-4 gap-3">
+              {props.suggested.map(item => <CompactSuggested key={item.id} item={item} onAdd={() => props.addItem(item)} />)}
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <View className="mt-auto border-t border-white/10 px-3 py-3">
+        <View className={`flex-row items-center gap-3 rounded-2xl border px-4 py-3 ${props.focused ? 'border-[#D9A441] bg-white/[0.09]' : 'border-white/10 bg-white/[0.06]'}`}>
+          <TextInput
+            value={props.message}
+            onChangeText={props.setMessage}
+            onFocus={() => props.setFocused(true)}
+            onBlur={() => props.setFocused(false)}
+            placeholder="Tell me what you'd like..."
+            placeholderTextColor="#777"
+            className="flex-1 text-base text-white"
+            cursorColor={paleGold}
+            selectionColor={paleGold}
+            returnKeyType="send"
+            onSubmitEditing={() => props.askAI()}
+            style={{ outlineStyle: 'none' } as never}
+          />
+          <Pressable onPress={() => props.askAI()} className="h-11 w-11 items-center justify-center rounded-full bg-[#8A672C]">
+            {props.loading ? <ActivityIndicator color="black" /> : <SendHorizonal size={19} color="black" />}
           </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function MenuScreen({ filter, setFilter, visibleMenu, addItem, width }: { filter: MenuFilter; setFilter: (filter: MenuFilter) => void; visibleMenu: MenuItem[]; addItem: (item: MenuItem) => void; width: number }) {
+  const cardGap = 12;
+  const availableWidth = Math.min(width, 420) - 32;
+  const cardWidth = Math.max(150, Math.floor((availableWidth - cardGap) / 2));
+  return (
+    <View className="px-4 pt-12">
+      <Text className="text-4xl font-black text-white" style={serif}>Menu</Text>
+      <Text className="mt-1 text-sm text-neutral-400">Curated by our AI sommelier</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-5">
+        <View className="flex-row gap-2 pr-8">
+          {menuFilters.map(item => (
+            <Pressable key={item} onPress={() => setFilter(item)} className={`rounded-full border px-4 py-2.5 ${filter === item ? 'border-[#D9A441] bg-[#D9A441]' : 'border-white/10 bg-white/[0.07]'}`}>
+              <Text className={`font-black ${filter === item ? 'text-black' : 'text-neutral-300'}`}>{item}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+      <View className="mt-4 rounded-2xl border border-white/10 bg-white/[0.08] p-4">
+        <Text className="font-black text-[#F1C46D]">✣ AI Pick of the Day</Text>
+        <Text className="mt-1 text-xs text-neutral-300">Truffle Wagyu Burger pairs perfectly with our Espresso Martini</Text>
+      </View>
+      <View className="mt-4 flex-row flex-wrap gap-3">
+        {visibleMenu.map(item => <MenuGridCard key={item.id} item={item} onAdd={() => addItem(item)} width={cardWidth} />)}
+      </View>
+    </View>
+  );
+}
+
+function CartScreen({ items, total, itemCount, askAI, checkout, updateQuantity, removeItem }: { items: Array<MenuItem & { quantity: number; modifiers?: Record<string, unknown>; notes?: string[] }>; total: number; itemCount: number; askAI: () => void; checkout: () => void; updateQuantity: (id: string, quantity: number) => void; removeItem: (id: string) => void }) {
+  return (
+    <View className="min-h-screen px-4 pt-14">
+      <Text className="text-4xl font-black text-white" style={serif}>Your Order</Text>
+      <Text className="mt-1 text-sm text-neutral-400">{itemCount} items</Text>
+      {!items.length ? (
+        <View className="flex-1 items-center justify-center py-28">
+          <ShoppingBag size={44} color="#777" />
+          <Text className="mt-5 text-xl font-black text-white">Your cart is empty</Text>
+          <Text className="mt-2 text-center text-base text-neutral-400">Start a conversation with our AI concierge</Text>
+          <Pressable onPress={askAI} className="mt-6 rounded-full bg-[#D9A441] px-7 py-4">
+            <Text className="font-black text-black">✣ Order with AI</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View className="mt-8 gap-3">
+          {items.map(item => <OrderLine key={item.id} item={item} updateQuantity={updateQuantity} removeItem={removeItem} />)}
+          <View className="mt-3 rounded-2xl border border-white/10 bg-white/[0.08] p-4">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-lg font-black text-white">Total</Text>
+              <Text className="text-xl font-black text-[#F1C46D]">${total.toFixed(2)}</Text>
+            </View>
+            <Pressable onPress={checkout} className="mt-4 rounded-full bg-[#D9A441] py-4">
+              <Text className="text-center font-black text-black">Place Order</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function OrdersScreen({ orders }: { confirmed: boolean; orders: PlacedOrder[] }) {
+  const latest = orders[0];
+  return (
+    <View className="min-h-screen px-4 pt-14">
+      <View className="items-center">
+        <Orb size={110} />
+        <View className="mt-4 items-center">
+          <Text className="text-4xl font-black text-white" style={serif}>{latest ? 'Order Confirmed' : 'No Active Orders'}</Text>
+          <Text className="mt-2 text-center text-base text-neutral-400">{latest ? 'Your AI-curated dining experience is on its way' : 'Place an order and your receipt will appear here'}</Text>
+        </View>
+      </View>
+      <View className="mt-7 rounded-2xl border border-[#D9A441]/25 bg-white/[0.08] p-5" style={{ shadowColor: gold, shadowOpacity: 0.28, shadowRadius: 18 }}>
+        <View className="flex-row items-center gap-3">
+          <Clock3 size={18} color={gold} />
+          <View>
+            <Text className="text-sm text-neutral-400">Estimated Delivery</Text>
+            <Text className="text-xl font-black text-[#F1C46D]">{latest ? latest.etaMinutes : '--'}</Text>
+          </View>
+        </View>
+      </View>
+      {latest ? (
+        <View className="mt-4 gap-3">
+          {latest.items.map(item => <OrderLine key={`${latest.id}-${item.id}`} item={item} updateQuantity={() => undefined} removeItem={() => undefined} readonly />)}
         </View>
       ) : null}
-
-      <View className={isWide ? 'flex-row flex-wrap justify-between' : ''}>
-        {visibleMenu.map(item => (
-          <View key={item.id} style={{ width: isWide ? '48.8%' : '100%' }}>
-            <MenuCard item={item} isSuggested={lastSuggestedItems.includes(item.id)} />
-          </View>
-        ))}
+      <View className="mt-4 rounded-2xl border border-white/10 bg-white/[0.08] p-5">
+        <View className="flex-row items-center gap-2">
+          <ReceiptText size={17} color={gold} />
+          <Text className="text-lg font-black text-white">Receipt</Text>
+        </View>
+        <View className="my-5 h-px bg-white/10" />
+        <ReceiptRow label="Subtotal" value={latest?.subtotal || 0} />
+        <ReceiptRow label="Tax" value={latest?.tax || 0} />
+        <View className="my-4 h-px bg-white/10" />
+        <View className="flex-row items-center justify-between">
+          <Text className="text-lg font-black text-white">Total</Text>
+          <Text className="text-lg font-black text-[#F1C46D]">${(latest?.total || 0).toFixed(2)}</Text>
+        </View>
       </View>
+      {orders.length > 1 ? (
+        <View className="mt-5">
+          <Text className="mb-3 text-lg font-black text-white">Previous Orders</Text>
+          {orders.slice(1).map(order => (
+            <View key={order.id} className="mb-3 rounded-2xl bg-white/[0.06] p-4">
+              <Text className="font-black text-white">{order.items.reduce((sum, item) => sum + item.quantity, 0)} item{order.items.length === 1 ? '' : 's'}</Text>
+              <Text className="mt-1 text-sm text-neutral-400">{new Date(order.placedAt).toLocaleString()}</Text>
+              <Text className="mt-2 font-black text-[#F1C46D]">${order.total.toFixed(2)}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <Text className="mt-9 text-center text-base font-semibold text-neutral-500">Thank you for dining with The Intelligent Bistro</Text>
     </View>
   );
+}
 
-  const topBar = (
-    <View className="mb-5 rounded-lg border border-white/10 bg-slate-950/55 p-4">
-      <View className="flex-row items-center gap-3">
-        <LinearGradient colors={['#14B8A6', '#F97316']} className="h-11 w-11 items-center justify-center rounded-lg">
-          <Bot size={21} color="white" />
-        </LinearGradient>
-        <View className="flex-1">
-          <Text className="text-2xl font-black text-white">Intelligent Bistro</Text>
-          <Text className="mt-1 text-xs font-black uppercase tracking-widest text-teal-100">Tell the AI, then order</Text>
-        </View>
-        <View className="flex-row gap-2">
-          <Pressable onPress={() => setViewMode('ai')} className={`flex-row items-center gap-2 rounded-full px-3 py-2 ${viewMode === 'ai' ? 'bg-teal-300' : 'bg-white/10'}`}>
-            <MessageCircle size={14} color={viewMode === 'ai' ? '#020617' : 'white'} />
-            <Text className={`text-xs font-black ${viewMode === 'ai' ? 'text-slate-950' : 'text-white'}`}>AI</Text>
-          </Pressable>
-          <Pressable onPress={() => setViewMode('menu')} className={`flex-row items-center gap-2 rounded-full px-3 py-2 ${viewMode === 'menu' ? 'bg-amber-300' : 'bg-white/10'}`}>
-            <Utensils size={14} color={viewMode === 'menu' ? '#020617' : 'white'} />
-            <Text className={`text-xs font-black ${viewMode === 'menu' ? 'text-slate-950' : 'text-white'}`}>Menu</Text>
-          </Pressable>
-        </View>
-      </View>
-      <View className="mt-4 flex-row flex-wrap gap-2">
-        <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
-          <Bot size={15} color="#5EEAD4" />
-          <Text className="text-xs font-black text-teal-100">SKIPS MENU SCAN</Text>
-        </View>
-        <View className="flex-row items-center gap-2 rounded-full bg-black/35 px-4 py-3">
-          <ShoppingBag size={15} color="#FCD34D" />
-          <Text className="text-xs font-black text-amber-100">{itemCount} IN ORDER</Text>
-        </View>
-      </View>
-    </View>
-  );
-
+function BottomTabs({ tab, setTab, itemCount }: { tab: Tab; setTab: (tab: Tab) => void; itemCount: number }) {
+  const tabs: Array<{ id: Tab; label: string; icon: (color: string) => JSX.Element }> = [
+    { id: 'concierge', label: 'Concierge', icon: color => <Sparkles size={22} color={color} /> },
+    { id: 'order', label: 'Order', icon: color => <MessageCircle size={22} color={color} /> },
+    { id: 'menu', label: 'Menu', icon: color => <UtensilsCrossed size={22} color={color} /> },
+    { id: 'cart', label: 'Cart', icon: color => <ShoppingBag size={22} color={color} /> },
+    { id: 'orders', label: 'Orders', icon: color => <ReceiptText size={22} color={color} /> }
+  ];
   return (
-    <LinearGradient colors={['#020617', '#0F172A', '#052E2B', '#111827']} className="flex-1">
-      <SafeAreaView className="flex-1">
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: isWide ? 28 : 20, paddingBottom: 32 }}>
-          <View className="pt-5" style={{ alignSelf: 'center', maxWidth: 1180, width: '100%' }}>
-            {topBar}
-            {viewMode === 'ai' ? (
-              isWide ? (
-                <View className="flex-row items-start gap-5">
-                  <View className="flex-1">
-                    <AIConcierge />
+    <View className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#111111]/95 px-3 pb-2 pt-2">
+      <View className="flex-row items-center justify-between">
+        {tabs.map(item => {
+          const active = tab === item.id;
+          const color = active ? gold : '#777';
+          return (
+            <Pressable key={item.id} onPress={() => setTab(item.id)} className="min-w-14 items-center">
+              <View className="relative">
+                {item.icon(color)}
+                {item.id === 'cart' && itemCount ? (
+                  <View className="absolute -right-2 -top-1 h-4 min-w-4 items-center justify-center rounded-full bg-[#D9A441] px-1">
+                    <Text className="text-[10px] font-black text-black">{itemCount}</Text>
                   </View>
-                  <View style={{ width: 380 }}>
-                    <CartDock />
-                  </View>
-                </View>
-              ) : (
-                <>
-                  <AIConcierge />
-                  <CartDock />
-                </>
-              )
+                ) : null}
+              </View>
+              <Text className={`mt-1 text-[11px] ${active ? 'text-[#D9A441]' : 'text-neutral-500'}`}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function SectionHeader({ title, icon }: { title: string; icon: string }) {
+  return (
+    <View className="mb-3 mt-8 flex-row items-center justify-between">
+      <View className="flex-row items-center gap-2">
+        <Text className="text-lg text-[#D9A441]">{icon}</Text>
+        <Text className="text-2xl font-black text-white">{title}</Text>
+      </View>
+      <Text className="text-sm font-black text-[#D9A441]">See all</Text>
+    </View>
+  );
+}
+
+function LargeDishCard({ item, onAdd }: { item: MenuItem; onAdd: () => void }) {
+  return (
+    <Pressable onPress={onAdd} className="w-44 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.08]">
+      <ImageBackground source={{ uri: item.image }} className="h-44 justify-end" imageStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.88)']} className="p-3">
+          <View className="mb-16 flex-row items-start justify-between">
+            <Text className="rounded-full bg-black/45 px-2 py-1 text-xs font-black text-neutral-200">{item.calories} cal</Text>
+            <Text className="rounded-full bg-black/45 px-2 py-1 text-sm font-black text-[#F1C46D]">${item.price.toFixed(2)}</Text>
+          </View>
+          <Text className="text-lg font-black text-white" numberOfLines={1}>{item.name}</Text>
+          <Text className="mt-1 text-xs text-neutral-300" numberOfLines={2}>{item.description}</Text>
+        </LinearGradient>
+      </ImageBackground>
+    </Pressable>
+  );
+}
+
+function FeaturedCard({ item, onAdd }: { item: MenuItem; onAdd: () => void }) {
+  return (
+    <Pressable onPress={onAdd} className="w-[48%] overflow-hidden rounded-2xl">
+      <ImageBackground source={{ uri: item.image }} className="h-36 justify-end" imageStyle={{ borderRadius: 16 }}>
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} className="rounded-2xl p-3">
+          <Text className="font-black text-white" numberOfLines={1}>{item.name}</Text>
+          <Text className="text-sm font-black text-[#F1C46D]">${item.price.toFixed(2)} · {item.calories} cal</Text>
+        </LinearGradient>
+      </ImageBackground>
+    </Pressable>
+  );
+}
+
+function MenuGridCard({ item, onAdd, width }: { item: MenuItem; onAdd: () => void; width: number }) {
+  return (
+    <View className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.07]" style={{ width }}>
+      <Image source={{ uri: item.image }} className="h-28 w-full bg-neutral-900" />
+      <View className="p-3">
+        <View className="flex-row items-start justify-between gap-2">
+          <Text className="flex-1 font-black text-white" numberOfLines={1}>{item.name}</Text>
+          <Text className="font-black text-[#F1C46D]">${item.price.toFixed(2)}</Text>
+        </View>
+        <Text className="mt-1 text-xs font-black text-[#F1C46D]">{item.calories} cal</Text>
+        <Text className="mt-1 text-xs leading-4 text-neutral-400" numberOfLines={2}>{item.ingredients.join(', ')}</Text>
+        <View className="mt-2 flex-row flex-wrap gap-1">
+          {item.tags.slice(0, 2).map(tag => (
+            <Text key={tag} className="rounded-md bg-[#D9A441]/15 px-2 py-1 text-[10px] font-black text-[#D9A441]">{tag}</Text>
+          ))}
+        </View>
+        <Pressable onPress={onAdd} className="mt-3 rounded-xl border border-white/10 bg-white/[0.06] py-2.5">
+          <Text className="text-center font-black text-white">+ Add</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function CompactSuggested({ item, onAdd }: { item: MenuItem; onAdd: () => void }) {
+  return (
+    <Pressable onPress={onAdd} className="flex-row gap-3 rounded-2xl bg-white/[0.06] p-3">
+      <Image source={{ uri: item.image }} className="h-20 w-20 rounded-xl bg-neutral-900" />
+      <View className="flex-1">
+        <Text className="font-black text-white">{item.name}</Text>
+        <Text className="mt-1 text-xs leading-4 text-neutral-400" numberOfLines={2}>{item.ingredients.join(', ')}</Text>
+        <Text className="mt-2 font-black text-[#F1C46D]">${item.price.toFixed(2)}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function OrderLine({ item, updateQuantity, removeItem, readonly = false }: { item: MenuItem & { quantity: number; modifiers?: Record<string, unknown>; notes?: string[] }; updateQuantity: (id: string, quantity: number) => void; removeItem: (id: string) => void; readonly?: boolean }) {
+  const removed = Array.isArray(item.modifiers?.remove) ? item.modifiers.remove.map(String) : [];
+  const ingredients = item.ingredients.filter(ingredient => !removed.some(remove => ingredient.toLowerCase().includes(remove.toLowerCase())));
+  return (
+    <View className="rounded-2xl bg-white/[0.06] p-3">
+      <View className="flex-row gap-3">
+        <Image source={{ uri: item.image }} className="h-20 w-20 rounded-xl bg-neutral-900" />
+        <View className="flex-1">
+          <Text className="font-black text-white">{item.name}</Text>
+          <Text className="mt-1 text-xs leading-4 text-neutral-400" numberOfLines={2}>{ingredients.join(', ')}</Text>
+          {removed.length ? <Text className="mt-1 text-xs font-semibold text-[#F1C46D]">Removed: {removed.join(', ')}</Text> : null}
+          {item.notes?.length ? <Text className="mt-1 text-xs font-semibold text-emerald-300">{item.notes.join(', ')}</Text> : null}
+          <View className="mt-3 flex-row items-center justify-between">
+            <Text className="font-black text-[#F1C46D]">${(item.price * item.quantity).toFixed(2)}</Text>
+            {readonly ? (
+              <Text className="font-black text-white">Qty {item.quantity}</Text>
             ) : (
-              <>
-                <View className={isWide ? 'flex-row items-start gap-5' : ''}>
-                  <View className="flex-1">{menuSection}</View>
-                  {isWide ? (
-                    <View style={{ width: 380 }}>
-                      <CartDock />
-                    </View>
-                  ) : (
-                    <CartDock />
-                  )}
-                </View>
-              </>
+              <View className="flex-row items-center gap-2">
+                <Pressable onPress={() => updateQuantity(item.id, item.quantity - 1)} className="h-7 w-7 items-center justify-center rounded-full bg-white/10"><Text className="font-black text-white">-</Text></Pressable>
+                <Text className="min-w-5 text-center font-black text-white">{item.quantity}</Text>
+                <Pressable onPress={() => updateQuantity(item.id, item.quantity + 1)} className="h-7 w-7 items-center justify-center rounded-full bg-white/10"><Text className="font-black text-white">+</Text></Pressable>
+                <Pressable onPress={() => removeItem(item.id)}><Text className="font-black text-red-300">×</Text></Pressable>
+              </View>
             )}
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function ReceiptRow({ label, value }: { label: string; value: number }) {
+  return (
+    <View className="mb-3 flex-row items-center justify-between">
+      <Text className="text-neutral-400">{label}</Text>
+      <Text className="font-black text-neutral-200">${value.toFixed(2)}</Text>
+    </View>
   );
 }

@@ -44,7 +44,7 @@ export const AIOrderResponseSchema = z.object({
   needsClarification: z.boolean().default(false),
   clarificationQuestion: z.string().nullable().default(null),
   suggestedItems: z.array(z.string()).default([]),
-  provider: z.enum(['openai', 'deterministic']).default('deterministic'),
+  provider: z.enum(['openai', 'ollama', 'deterministic']).default('deterministic'),
   model: z.string().default('deterministic-demo-parser'),
   confidence: z.number().min(0).max(1).default(0.86),
   normalizedIntent: z.string().default('Process restaurant ordering request'),

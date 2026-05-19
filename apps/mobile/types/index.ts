@@ -1,4 +1,4 @@
-export type Category = 'Sandwiches' | 'Bowls' | 'Sides' | 'Drinks' | 'Desserts';
+export type Category = 'Mains' | 'Sides' | 'Drinks' | 'Desserts';
 
 export type MenuItem = {
   id: string;
@@ -9,6 +9,8 @@ export type MenuItem = {
   image: string;
   tags: string[];
   spiceLevel: 0 | 1 | 2 | 3;
+  calories: number;
+  ingredients: string[];
   modifiers: {
     sizes?: string[];
     remove?: string[];
@@ -21,6 +23,17 @@ export type CartItem = MenuItem & {
   modifiers?: Record<string, unknown>;
   notes?: string[];
   lastTouchedAt?: number;
+};
+
+export type PlacedOrder = {
+  id: string;
+  items: CartItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  placedAt: number;
+  etaMinutes: string;
+  status: 'confirmed' | 'preparing' | 'delivered';
 };
 
 export type AIActionType =
@@ -49,7 +62,7 @@ export type AIResponse = {
   needsClarification: boolean;
   clarificationQuestion: string | null;
   suggestedItems: string[];
-  provider: 'openai' | 'deterministic';
+  provider: 'openai' | 'ollama' | 'deterministic';
   model: string;
   confidence: number;
   normalizedIntent: string;

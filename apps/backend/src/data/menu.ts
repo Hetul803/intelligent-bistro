@@ -7,6 +7,8 @@ export type MenuItem = {
   image: string;
   tags: string[];
   spiceLevel: 0 | 1 | 2 | 3;
+  calories: number;
+  ingredients: string[];
   modifiers: {
     sizes?: string[];
     remove?: string[];
@@ -21,10 +23,12 @@ export const menu: MenuItem[] = [
     category: 'Sandwiches',
     description: 'Crispy chicken, solar chili glaze, pickled slaw, toasted brioche.',
     price: 14.5,
-    image: 'https://images.unsplash.com/photo-1606755962773-d324e2a13086?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1521390188846-e2a3a97453a0?q=80&w=1200&auto=format&fit=crop',
     tags: ['popular', 'spicy', 'protein'],
     spiceLevel: 3,
-    modifiers: { remove: ['slaw', 'sauce', 'pickles'], addOns: ['extra chicken', 'cheese', 'avocado'] }
+    calories: 720,
+    ingredients: ['crispy chicken patty', 'solar chili glaze', 'pickled slaw', 'brioche bun'],
+    modifiers: { remove: ['solar chili glaze', 'slaw', 'pickles'], addOns: ['ranch', 'cheese', 'avocado', 'extra chicken'] }
   },
   {
     id: 'classic_bistro_burger',
@@ -35,7 +39,9 @@ export const menu: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1200&auto=format&fit=crop',
     tags: ['classic', 'protein'],
     spiceLevel: 0,
-    modifiers: { remove: ['cheese', 'aioli', 'tomato'], addOns: ['extra patty', 'bacon', 'avocado'] }
+    calories: 810,
+    ingredients: ['smash patty', 'aged cheddar', 'aioli', 'lettuce', 'tomato', 'soft bun'],
+    modifiers: { remove: ['cheese', 'aioli', 'tomato'], addOns: ['extra patty', 'bacon', 'avocado', 'ranch'] }
   },
   {
     id: 'veggie_power_bowl',
@@ -46,6 +52,8 @@ export const menu: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1200&auto=format&fit=crop',
     tags: ['vegetarian', 'healthy', 'gluten-free'],
     spiceLevel: 0,
+    calories: 640,
+    ingredients: ['quinoa', 'avocado', 'roasted vegetables', 'edamame', 'citrus tahini'],
     modifiers: { remove: ['onions', 'tahini', 'edamame'], addOns: ['tofu', 'egg', 'extra avocado'] }
   },
   {
@@ -57,6 +65,8 @@ export const menu: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?q=80&w=1200&auto=format&fit=crop',
     tags: ['vegetarian', 'light'],
     spiceLevel: 0,
+    calories: 510,
+    ingredients: ['romaine', 'parmesan crisp', 'herb croutons', 'lemon-pepper dressing'],
     modifiers: { remove: ['croutons', 'parmesan', 'dressing'], addOns: ['chicken', 'tofu', 'avocado'] }
   },
   {
@@ -68,7 +78,9 @@ export const menu: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1576107232684-1279f390859f?q=80&w=1200&auto=format&fit=crop',
     tags: ['side', 'vegetarian'],
     spiceLevel: 0,
-    modifiers: { sizes: ['small', 'regular', 'large'], addOns: ['cheese', 'chili dust'] }
+    calories: 430,
+    ingredients: ['skin-on fries', 'smoked salt', 'orbital aioli'],
+    modifiers: { sizes: ['small', 'regular', 'large'], addOns: ['cheese', 'chili dust', 'ranch'] }
   },
   {
     id: 'lunar_lemonade',
@@ -79,6 +91,8 @@ export const menu: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?q=80&w=1200&auto=format&fit=crop',
     tags: ['drink', 'refreshing'],
     spiceLevel: 0,
+    calories: 140,
+    ingredients: ['fresh lemon', 'mint', 'sparkling water', 'lavender syrup'],
     modifiers: { sizes: ['regular', 'large'], addOns: ['extra mint', 'less sugar'] }
   },
   {
@@ -90,6 +104,8 @@ export const menu: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?q=80&w=1200&auto=format&fit=crop',
     tags: ['drink'],
     spiceLevel: 0,
+    calories: 0,
+    ingredients: ['filtered still water', 'ice'],
     modifiers: { sizes: ['regular', 'large'], addOns: ['ice', 'lemon'] }
   },
   {
@@ -101,6 +117,8 @@ export const menu: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1511911063855-2bf39afa5b2e?q=80&w=1200&auto=format&fit=crop',
     tags: ['dessert', 'vegetarian'],
     spiceLevel: 0,
+    calories: 460,
+    ingredients: ['dark chocolate mousse', 'espresso dust', 'berry compote'],
     modifiers: { remove: ['berry compote'], addOns: ['extra chocolate', 'cream'] }
   }
 ];

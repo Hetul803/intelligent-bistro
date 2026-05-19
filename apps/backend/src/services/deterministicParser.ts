@@ -524,6 +524,34 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
     });
   }
 
+  if ((hasAny(lower, ['spicy', 'heat', 'hot']) && hasAny(lower, ['under 20', 'under $20', '20 dollars', '$20'])) || hasAny(lower, ['something spicy'])) {
+    return buildResponse({
+      assistantMessage: 'Best fit: the Spicy Chicken Sandwich. It is bold, filling, and stays under $20 before tax. I added it with the heat intact.',
+      actions: [{ type: 'ADD_ITEM', itemId: 'spicy_chicken_sandwich', quantity: 1 }],
+      suggestedItems: ['spicy_chicken_sandwich', 'lunar_lemonade'],
+      confidence: 0.93,
+      normalizedIntent: 'Find a spicy order under budget'
+    });
+  }
+
+  if (hasAny(lower, ['chicken sandwich', 'spicy chicken']) && hasAny(lower, ['not spicy', 'less spicy', 'make it mild', 'mild'])) {
+    return buildResponse({
+      assistantMessage: 'Got it. I added the chicken sandwich and removed the solar chili glaze, which is the spicy ingredient. I also marked it mild so the kitchen sees the change clearly.',
+      actions: [
+        {
+          type: 'ADD_ITEM',
+          itemId: 'spicy_chicken_sandwich',
+          quantity: 1,
+          modifiers: { remove: ['solar chili glaze'] },
+          notes: ['removed solar chili glaze', 'make mild']
+        }
+      ],
+      suggestedItems: ['lunar_lemonade', 'quantum_fries'],
+      confidence: 0.95,
+      normalizedIntent: 'Add chicken sandwich with spicy ingredient removed'
+    });
+  }
+
   if (hasAny(lower, ['high protein', 'protein lunch', 'post workout', 'post-workout'])) {
     return buildResponse({
       assistantMessage: 'Built a high-protein lunch that stays under $25 before tax. Want water or lemonade with it?',
@@ -620,10 +648,15 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
     } else if (modifierOnly) {
       const notes: string[] = [];
       if (lower.includes('no onion') || lower.includes('without onion')) notes.push('no onions');
-      if (lower.includes('not spicy') || lower.includes('less spicy')) notes.push('reduce spice');
+      if (lower.includes('not spicy') || lower.includes('less spicy')) {
+        notes.push('removed solar chili glaze');
+        notes.push('make mild');
+      }
       if (lower.includes('no sauce') || lower.includes('without sauce')) notes.push('no sauce');
       const modifiers: Record<string, unknown> = {};
       if (lower.includes('large') && item.modifiers.sizes?.includes('large')) modifiers.size = 'large';
+      if ((lower.includes('not spicy') || lower.includes('less spicy')) && item.id === 'spicy_chicken_sandwich') modifiers.remove = ['solar chili glaze'];
+      if (lower.includes('ranch')) modifiers.addOns = ['ranch'];
       actions.push({ type: 'UPDATE_MODIFIERS', itemId: item.id, modifiers, notes });
       summaries.push(`updated ${item.name}`);
     } else {
@@ -632,8 +665,13 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
       if (lower.includes('large') && item.modifiers.sizes?.includes('large')) modifiers.size = 'large';
       if (lower.includes('small') && item.modifiers.sizes?.includes('small')) modifiers.size = 'small';
       if (lower.includes('no onion') || lower.includes('without onion')) notes.push('no onions');
-      if (lower.includes('not spicy') || lower.includes('less spicy')) notes.push('reduce spice');
+      if (lower.includes('not spicy') || lower.includes('less spicy')) {
+        notes.push('removed solar chili glaze');
+        notes.push('make mild');
+      }
       if (lower.includes('no sauce') || lower.includes('without sauce')) notes.push('no sauce');
+      if ((lower.includes('not spicy') || lower.includes('less spicy')) && item.id === 'spicy_chicken_sandwich') modifiers.remove = ['solar chili glaze'];
+      if (lower.includes('ranch')) modifiers.addOns = ['ranch'];
       actions.push({
         type: 'ADD_ITEM',
         itemId: item.id,
@@ -659,9 +697,9 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
 
   if (actions.length === 0) {
     return buildResponse({
-      assistantMessage: 'I can help with that. Try asking me to add, remove, modify, or filter menu items.',
+      assistantMessage: 'I can help with that. I found a few good starting points below; tell me a craving, budget, dietary need, or item change and I will build the order.',
       actions: [{ type: 'NO_OP' }],
-      suggestedItems: ['spicy_chicken_sandwich', 'veggie_power_bowl'],
+      suggestedItems: ['spicy_chicken_sandwich', 'veggie_power_bowl', 'classic_bistro_burger'],
       confidence: 0.46,
       normalizedIntent: 'Unrecognized ordering request'
     });

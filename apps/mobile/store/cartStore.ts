@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { menu } from '../constants/menu';
-import { AIAction, AIChatMessage, AIResponse, CartItem, MenuItem } from '../types';
+import { AIAction, AIChatMessage, AIResponse, CartItem, MenuItem, PlacedOrder } from '../types';
 
 type CartSnapshot = CartItem[];
 
 type CartStore = {
   items: CartItem[];
+  orders: PlacedOrder[];
   lastAssistantMessage: string;
   lastUserIntent: string;
   lastActions: AIAction[];
@@ -20,6 +21,7 @@ type CartStore = {
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
   clearFilter: () => void;
+  placeOrder: () => PlacedOrder | null;
   applyActions: (actions: AIAction[], assistantMessage: string, intent?: string, suggestedItems?: string[]) => void;
   applyAIResponse: (response: AIResponse, intent: string) => void;
   undo: () => void;
@@ -44,13 +46,14 @@ function createMessage(role: AIChatMessage['role'], content: string, meta?: AICh
 
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
-  lastAssistantMessage: 'Give me a goal like light, spicy, cheap, fast, group, or dietary-safe. I will compare the menu and only ask when the choice matters.',
-  lastUserIntent: 'Awaiting first intent',
+  orders: [],
+  lastAssistantMessage: 'I’m ready. Tell me what sounds good, or tap a suggestion below.',
+  lastUserIntent: 'Bistro AI is listening',
   lastActions: [],
-  lastSuggestedItems: [],
+  lastSuggestedItems: ['spicy_chicken_sandwich', 'veggie_power_bowl'],
   lastAIResponse: null,
   conversation: [
-    createMessage('assistant', 'Skip browsing. Tell me the outcome: light and healthy, spicy under $20, fastest pickup, feed a group, or allergy-safe. I will compare the menu, narrow the choices, and ask before adding drinks.')
+    createMessage('assistant', 'What sounds good today?')
   ],
   lastUpdatedAt: null,
   activeFilter: null,
@@ -114,6 +117,33 @@ export const useCartStore = create<CartStore>((set, get) => ({
       lastAIResponse: null,
       lastUpdatedAt: Date.now()
     });
+  },
+
+  placeOrder: () => {
+    const current = get().items;
+    if (!current.length) return null;
+    const subtotal = get().subtotal();
+    const tax = get().tax();
+    const order: PlacedOrder = {
+      id: `order-${Date.now()}`,
+      items: current,
+      subtotal,
+      tax,
+      total: subtotal + tax,
+      placedAt: Date.now(),
+      etaMinutes: '25-35 min',
+      status: 'confirmed'
+    };
+    set({
+      orders: [order, ...get().orders],
+      history: [...get().history, [...current]].slice(-10),
+      items: [],
+      lastAssistantMessage: 'Your order is confirmed. I cleared the active cart and saved the receipt.',
+      lastUserIntent: 'Order confirmed',
+      lastActions: [{ type: 'NO_OP' }],
+      lastUpdatedAt: Date.now()
+    });
+    return order;
   },
 
   applyActions: (actions, assistantMessage, intent = get().lastUserIntent, suggestedItems = []) => {

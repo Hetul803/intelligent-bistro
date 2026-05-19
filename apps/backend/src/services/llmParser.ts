@@ -10,6 +10,10 @@ type ConversationTurn = {
 };
 
 export async function parseOrderWithAI(message: string, cart: unknown, conversation: ConversationTurn[] = []) {
+  if (process.env.AI_PROVIDER === 'ollama') {
+    return parseOrderWithOllama(message, cart, conversation);
+  }
+
   if (!process.env.OPENAI_API_KEY || process.env.AI_PROVIDER === 'mock') {
     return deterministicParse(message, cart);
   }
@@ -57,6 +61,50 @@ export async function parseOrderWithAI(message: string, cart: unknown, conversat
     });
   } catch (error) {
     console.error('LLM parse failed. Falling back to deterministic parser.', error);
+    return deterministicParse(message, cart);
+  }
+}
+
+async function parseOrderWithOllama(message: string, cart: unknown, conversation: ConversationTurn[] = []) {
+  const model = process.env.OLLAMA_MODEL || 'llama3.2:1b';
+  const host = process.env.OLLAMA_HOST || 'http://localhost:11434';
+
+  try {
+    const response = await fetch(`${host}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        options: { temperature: 0.1 },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are the ordering intelligence for Intelligent Bistro. Convert customer language into strict JSON only. Use only itemIds from the provided menu. Supported action types are ADD_ITEM, REMOVE_ITEM, UPDATE_QUANTITY, UPDATE_MODIFIERS, CLEAR_CART, SHOW_CATEGORY, SHOW_FILTERED_ITEMS, NO_OP. If ambiguous, return needsClarification true, one clarificationQuestion, and a NO_OP action. Include assistantMessage, actions, needsClarification, clarificationQuestion, suggestedItems, confidence, normalizedIntent, actionTrace, cartDiff, and impact. No markdown.'
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({ message, cart, recentConversation: conversation.slice(-8), menu }, null, 2)
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
+    const payload = (await response.json()) as { message?: { content?: string } };
+    const content = payload.message?.content || '';
+    const start = content.indexOf('{');
+    const end = content.lastIndexOf('}');
+    if (start < 0 || end < start) throw new Error('Ollama response did not contain JSON');
+    const parsed = JSON.parse(content.slice(start, end + 1));
+    return AIOrderResponseSchema.parse({
+      ...parsed,
+      provider: 'ollama',
+      model
+    });
+  } catch (error) {
+    console.error('Ollama parse failed. Falling back to deterministic parser.', error);
     return deterministicParse(message, cart);
   }
 }
