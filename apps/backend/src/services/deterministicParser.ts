@@ -48,6 +48,17 @@ function pluralize(name: string, quantity: number) {
   return `${name}s`;
 }
 
+const itemRules = [
+  { id: 'spicy_chicken_sandwich', terms: ['spicy chicken', 'chicken sandwich', 'spicy sandwich', 'spicy chicken sandwich'] },
+  { id: 'classic_bistro_burger', terms: ['classic burger', 'bistro burger', 'burger'] },
+  { id: 'veggie_power_bowl', terms: ['veggie bowl', 'power bowl', 'veggie power', 'veggie power bowl'] },
+  { id: 'neon_caesar_salad', terms: ['neon caesar', 'caesar', 'salad', 'caesar salad'] },
+  { id: 'quantum_fries', terms: ['quantum fries', 'fries', 'fry'] },
+  { id: 'lunar_lemonade', terms: ['lunar lemonade', 'lemonade'] },
+  { id: 'large_water', terms: ['large water', 'water'] },
+  { id: 'stellar_chocolate_mousse', terms: ['stellar mousse', 'mousse', 'dessert', 'chocolate'] }
+];
+
 function describeAction(action: AIOrderResponse['actions'][number]) {
   const name = action.itemId ? itemName(action.itemId) : 'cart';
   if (action.type === 'ADD_ITEM') return `Add ${action.quantity || 1} ${pluralize(name, action.quantity || 1)}`;
@@ -105,6 +116,34 @@ function buildResponse(input: {
   });
 }
 
+function cartTargetForMessage(message: string, currentCart: ReturnType<typeof normalizeCart>) {
+  const explicitRule = itemRules.find(rule => hasAny(message, rule.terms));
+  if (explicitRule) {
+    const explicitItem = currentCart.find(item => item.id === explicitRule.id);
+    return explicitItem || null;
+  }
+  if (hasAny(message, [' it', ' that', ' this', ' last item', ' newest item', ' current item', ' current order'])) {
+    return currentCart[currentCart.length - 1];
+  }
+  if (currentCart.length === 1 && hasAny(message, ['make', 'change', 'update', 'double', 'remove', 'delete', 'another', 'one more'])) return currentCart[0];
+  return null;
+}
+
+function modifierNotes(message: string) {
+  const notes: string[] = [];
+  const modifiers: Record<string, unknown> = {};
+  if (hasAny(message, ['not spicy', 'less spicy', 'mild', 'no spice', 'no spicy'])) notes.push('reduce spice');
+  if (hasAny(message, ['no sauce', 'without sauce', 'sauce on the side'])) notes.push(message.includes('side') ? 'sauce on side' : 'no sauce');
+  if (hasAny(message, ['no onion', 'no onions', 'without onion', 'without onions'])) notes.push('no onions');
+  if (hasAny(message, ['no slaw', 'without slaw'])) notes.push('no slaw');
+  if (hasAny(message, ['no pickles', 'without pickles'])) notes.push('no pickles');
+  if (hasAny(message, ['extra cheese', 'add cheese'])) notes.push('extra cheese');
+  if (hasAny(message, ['extra avocado', 'add avocado'])) notes.push('extra avocado');
+  if (hasAny(message, ['large', 'make it large', 'make that large'])) modifiers.size = 'large';
+  if (hasAny(message, ['small', 'make it small', 'make that small'])) modifiers.size = 'small';
+  return { notes, modifiers };
+}
+
 export function deterministicParse(message: string, cart: unknown = []): AIOrderResponse {
   const lower = message.toLowerCase();
   const currentCart = normalizeCart(cart);
@@ -124,6 +163,94 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
         { label: 'Next', value: 'Ready' }
       ]
     });
+  }
+
+  const targetItem = cartTargetForMessage(lower, currentCart);
+
+  if (targetItem && hasAny(lower, ['remove it', 'remove that', 'delete it', 'delete that', 'take it out', 'take that out'])) {
+    return buildResponse({
+      assistantMessage: `I removed ${itemName(targetItem.id)} from the order.`,
+      actions: [{ type: 'REMOVE_ITEM', itemId: targetItem.id }],
+      confidence: 0.93,
+      normalizedIntent: 'Remove referenced cart item',
+      cartDiff: [`Remove ${itemName(targetItem.id)}`],
+      impact: [
+        { label: 'Edit', value: 'Remove' },
+        { label: 'Target', value: itemName(targetItem.id) },
+        { label: 'Cart ops', value: '1' }
+      ]
+    });
+  }
+
+  if (targetItem && hasAny(lower, ['double it', 'double that', 'double ', 'make it two', 'make that two', 'make it 2', 'make that 2'])) {
+    const nextQuantity = lower.includes('double') ? Math.max(2, targetItem.quantity * 2) : 2;
+    return buildResponse({
+      assistantMessage: `I updated ${itemName(targetItem.id)} to quantity ${nextQuantity}.`,
+      actions: [{ type: 'UPDATE_QUANTITY', itemId: targetItem.id, quantity: nextQuantity }],
+      confidence: 0.93,
+      normalizedIntent: 'Update referenced item quantity',
+      cartDiff: [`Set ${itemName(targetItem.id)} quantity to ${nextQuantity}`],
+      impact: [
+        { label: 'Edit', value: 'Quantity' },
+        { label: 'Qty', value: String(nextQuantity) },
+        { label: 'Target', value: itemName(targetItem.id) }
+      ]
+    });
+  }
+
+  if (targetItem && hasAny(lower, ['one more', 'another one', 'add another', 'add one more'])) {
+    return buildResponse({
+      assistantMessage: `I added one more ${itemName(targetItem.id)}.`,
+      actions: [{ type: 'UPDATE_QUANTITY', itemId: targetItem.id, quantity: targetItem.quantity + 1 }],
+      confidence: 0.91,
+      normalizedIntent: 'Increase referenced item quantity',
+      cartDiff: [`Set ${itemName(targetItem.id)} quantity to ${targetItem.quantity + 1}`],
+      impact: [
+        { label: 'Edit', value: 'Quantity' },
+        { label: 'Qty', value: String(targetItem.quantity + 1) },
+        { label: 'Target', value: itemName(targetItem.id) }
+      ]
+    });
+  }
+
+  if (targetItem && hasAny(lower, ['make it', 'make that', 'change it', 'change that', 'update it', 'update that', 'no sauce', 'without sauce', 'less spicy', 'not spicy', 'no onion', 'without onion', 'extra cheese', 'extra avocado', 'large', 'small'])) {
+    const { notes, modifiers } = modifierNotes(lower);
+    if (notes.length || Object.keys(modifiers).length) {
+      return buildResponse({
+        assistantMessage: `I updated ${itemName(targetItem.id)}: ${[...notes, ...Object.entries(modifiers).map(([key, value]) => `${key} ${String(value)}`)].join(', ')}.`,
+        actions: [{ type: 'UPDATE_MODIFIERS', itemId: targetItem.id, modifiers, notes }],
+        confidence: 0.9,
+        normalizedIntent: 'Modify referenced cart item',
+        cartDiff: [`Modify ${itemName(targetItem.id)}`],
+        impact: [
+          { label: 'Edit', value: 'Modifiers' },
+          { label: 'Target', value: itemName(targetItem.id) },
+          { label: 'Cart ops', value: '1' }
+        ]
+      });
+    }
+  }
+
+  if (hasAny(lower, ['replace', 'swap', 'change']) && hasAny(lower, [' with ', ' to '])) {
+    const sourceRule = itemRules.find(rule => hasAny(lower, rule.terms) && currentCart.some(item => item.id === rule.id));
+    const destinationRule = itemRules.find(rule => hasAny(lower, rule.terms) && rule.id !== sourceRule?.id);
+    if (sourceRule && destinationRule) {
+      return buildResponse({
+        assistantMessage: `I swapped ${itemName(sourceRule.id)} for ${itemName(destinationRule.id)}.`,
+        actions: [
+          { type: 'REMOVE_ITEM', itemId: sourceRule.id },
+          { type: 'ADD_ITEM', itemId: destinationRule.id, quantity: 1 }
+        ],
+        confidence: 0.9,
+        normalizedIntent: 'Swap cart item',
+        cartDiff: [`Remove ${itemName(sourceRule.id)}`, `Add ${itemName(destinationRule.id)}`],
+        impact: [
+          { label: 'Edit', value: 'Swap' },
+          { label: 'From', value: itemName(sourceRule.id) },
+          { label: 'To', value: itemName(destinationRule.id) }
+        ]
+      });
+    }
   }
 
   if (wantsSpicy && budgetLimit !== null) {
@@ -480,17 +607,6 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
   }
 
   const removing = hasAny(lower, ['remove', 'delete', 'take out', 'take off']);
-
-  const itemRules = [
-    { id: 'spicy_chicken_sandwich', terms: ['spicy chicken', 'chicken sandwich', 'spicy sandwich'] },
-    { id: 'classic_bistro_burger', terms: ['classic burger', 'bistro burger'] },
-    { id: 'veggie_power_bowl', terms: ['veggie bowl', 'power bowl', 'veggie power'] },
-    { id: 'neon_caesar_salad', terms: ['caesar', 'salad'] },
-    { id: 'quantum_fries', terms: ['fries', 'fry'] },
-    { id: 'lunar_lemonade', terms: ['lemonade'] },
-    { id: 'large_water', terms: ['water'] },
-    { id: 'stellar_chocolate_mousse', terms: ['mousse', 'dessert', 'chocolate'] }
-  ];
 
   for (const rule of itemRules) {
     if (!hasAny(lower, rule.terms)) continue;

@@ -115,11 +115,11 @@ Optional:
 ```env
 OPENAI_API_KEY=your_api_key_here
 AI_PROVIDER=openai
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-4.1-mini
 PORT=4000
 ```
 
-Without `OPENAI_API_KEY`, the backend automatically uses the deterministic parser.
+With `OPENAI_API_KEY` set, the backend calls OpenAI through the Responses API with Structured Outputs and validates the result against the same Zod schema. Without `OPENAI_API_KEY`, the backend automatically uses the deterministic parser so the demo still works offline.
 
 ## Demo Commands
 
@@ -136,6 +136,20 @@ healthy and filling
 ```
 
 The assistant resolves the follow-up by adding the Veggie Power Bowl and asking before adding a drink.
+
+```txt
+double it
+```
+
+```txt
+make it no sauce
+```
+
+```txt
+remove that
+```
+
+These demonstrate chat-based item editing against the current cart.
 
 ```txt
 Build a group order for 4 people under $60 total, one vegetarian, no spicy items

@@ -13,10 +13,12 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
+  const llmEnabled = Boolean(process.env.OPENAI_API_KEY) && process.env.AI_PROVIDER !== 'mock';
   res.json({
     ok: true,
     service: 'intelligent-bistro-backend',
-    mode: process.env.OPENAI_API_KEY ? 'llm-enabled' : 'deterministic-demo-parser'
+    mode: llmEnabled ? 'llm-enabled' : 'deterministic-demo-parser',
+    model: llmEnabled ? process.env.OPENAI_MODEL || 'gpt-4.1-mini' : 'deterministic-demo-parser'
   });
 });
 

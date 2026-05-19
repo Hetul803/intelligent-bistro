@@ -6,7 +6,7 @@ import { GlassCard } from './GlassCard';
 import { useCartStore } from '../store/cartStore';
 import { sendAIOrder } from '../services/api';
 import { menu } from '../constants/menu';
-import { AIAction } from '../types';
+import { AIAction, CartItem } from '../types';
 
 const aiJobs = [
   {
@@ -52,12 +52,24 @@ function formatAction(action: AIAction) {
   return 'READY';
 }
 
+function editPromptsForItem(item: CartItem) {
+  const prompts = [
+    { label: `Remove ${item.name}`, prompt: `Remove ${item.name}` },
+    { label: `Double ${item.name}`, prompt: `Double ${item.name}` }
+  ];
+  if (item.modifiers?.sizes?.includes('large')) prompts.push({ label: `Make ${item.name} large`, prompt: `Make ${item.name} large` });
+  if (item.spiceLevel > 0) prompts.push({ label: `Make ${item.name} mild`, prompt: `Make ${item.name} less spicy` });
+  if (item.modifiers?.remove?.some(option => ['sauce', 'aioli', 'slaw'].includes(option))) {
+    prompts.push({ label: `No sauce`, prompt: `Make ${item.name} with no sauce` });
+  }
+  return prompts;
+}
+
 export function AIConcierge() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [activePanel, setActivePanel] = useState<'plan' | 'json' | 'chat'>('plan');
   const cart = useCartStore(state => state.items);
-  const addItem = useCartStore(state => state.addItem);
   const applyAIResponse = useCartStore(state => state.applyAIResponse);
   const lastAssistantMessage = useCartStore(state => state.lastAssistantMessage);
   const lastUserIntent = useCartStore(state => state.lastUserIntent);
@@ -67,6 +79,7 @@ export function AIConcierge() {
   const conversation = useCartStore(state => state.conversation);
   const lastUpdatedAt = useCartStore(state => state.lastUpdatedAt);
   const suggestedMenuItems = menu.filter(item => lastSuggestedItems.includes(item.id)).slice(0, 4);
+  const cartEditPrompts = useMemo(() => cart.flatMap(editPromptsForItem).slice(0, 8), [cart]);
   const visibleActions = lastActions.filter(action => action.type !== 'NO_OP').slice(0, 4);
   const actionJson = useMemo(() => JSON.stringify(lastActions.length ? lastActions : [{ type: 'AWAITING_INTENT' }], null, 2), [lastActions]);
   const confidence = Math.round((lastAIResponse?.confidence ?? 0.86) * 100);
@@ -87,7 +100,7 @@ export function AIConcierge() {
     if (!text || loading) return;
     setLoading(true);
     try {
-      const result = await sendAIOrder(text, cart);
+      const result = await sendAIOrder(text, cart, conversation);
       applyAIResponse(result, text);
       setMessage('');
     } catch (error) {
@@ -166,7 +179,7 @@ export function AIConcierge() {
             </View>
             <View className="gap-2">
               {suggestedMenuItems.map(item => (
-                <Pressable key={item.id} onPress={() => addItem(item)} className="flex-row items-center gap-3 rounded-lg bg-black/25 p-2">
+                <Pressable key={item.id} onPress={() => submit(`Add ${item.name}`)} className="flex-row items-center gap-3 rounded-lg bg-black/25 p-2">
                   <Image source={{ uri: item.image }} className="h-16 w-16 rounded-lg bg-slate-900" />
                   <View className="flex-1">
                     <Text className="font-black text-white">{item.name}</Text>
@@ -179,6 +192,24 @@ export function AIConcierge() {
                 </Pressable>
               ))}
             </View>
+          </View>
+        ) : null}
+
+        {cartEditPrompts.length ? (
+          <View className="mb-4 gap-3 rounded-lg bg-teal-300/10 p-3">
+            <View className="flex-row items-center gap-2">
+              <MessageSquare size={14} color="#5EEAD4" />
+              <Text className="text-xs font-black uppercase tracking-widest text-teal-100">Edit from chat</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-2 pr-3">
+                {cartEditPrompts.map(edit => (
+                  <Pressable key={`${edit.label}-${edit.prompt}`} onPress={() => submit(edit.prompt)} className="rounded-full bg-white/10 px-3 py-2">
+                    <Text className="text-xs font-black text-slate-100">{edit.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
           </View>
         ) : null}
 
