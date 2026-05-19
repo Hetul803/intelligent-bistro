@@ -62,7 +62,7 @@ export type AIResponse = {
   needsClarification: boolean;
   clarificationQuestion: string | null;
   suggestedItems: string[];
-  provider: 'openai' | 'ollama' | 'deterministic';
+  provider: 'local' | 'openai' | 'ollama' | 'deterministic';
   model: string;
   confidence: number;
   normalizedIntent: string;

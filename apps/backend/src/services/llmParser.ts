@@ -14,7 +14,7 @@ export async function parseOrderWithAI(message: string, cart: unknown, conversat
     return parseOrderWithOllama(message, cart, conversation);
   }
 
-  if (!process.env.OPENAI_API_KEY || process.env.AI_PROVIDER === 'mock') {
+  if (process.env.AI_PROVIDER !== 'openai' || !process.env.OPENAI_API_KEY) {
     return deterministicParse(message, cart);
   }
 

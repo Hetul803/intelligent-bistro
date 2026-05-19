@@ -14,7 +14,7 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 - Visible AI transaction trace: normalized intent, confidence, provider/model, impact metrics, cart diff, and JSON action preview
 - Reliable cart state management through both UI and AI
 - Backend schema validation with Zod
-- OpenAI Structured Outputs support with deterministic fallback parser for demo reliability
+- No-key local AI planner by default, with optional Ollama open-source LLM or OpenAI Structured Outputs support
 - Clean monorepo structure
 - Prompt-driven AI development workflow included in `/prompts`
 
@@ -36,8 +36,9 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 - Express
 - TypeScript
 - Zod
-- OpenAI-compatible service layer
-- Deterministic mock parser fallback
+- Offline local semantic order planner
+- Optional Ollama local open-source LLM mode
+- Optional OpenAI-compatible service layer
 
 ## Repo Structure
 
@@ -100,9 +101,9 @@ Then open:
 http://localhost:8081
 ```
 
-## Environment Variables
+## AI Modes
 
-Backend supports optional OpenAI API usage. The app works without an API key because it includes a deterministic parser with the same response contract.
+The app works without any API key. By default the backend uses a local semantic order planner that returns the same structured JSON contract as an LLM. This keeps the take-home demo reliable for recruiters.
 
 Create this file:
 
@@ -110,16 +111,32 @@ Create this file:
 apps/backend/.env
 ```
 
-Optional:
+No-key default:
 
 ```env
-OPENAI_API_KEY=your_api_key_here
+AI_PROVIDER=local
+PORT=4000
+```
+
+Optional local open-source LLM mode with Ollama:
+
+```env
+AI_PROVIDER=ollama
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.2:1b
+PORT=4000
+```
+
+Optional hosted model mode:
+
+```env
 AI_PROVIDER=openai
+OPENAI_API_KEY=your_api_key_here
 OPENAI_MODEL=gpt-4.1-mini
 PORT=4000
 ```
 
-With `OPENAI_API_KEY` set, the backend calls OpenAI through the Responses API with Structured Outputs and validates the result against the same Zod schema. Without `OPENAI_API_KEY`, the backend automatically uses the deterministic parser so the demo still works offline.
+Every mode validates responses with Zod before the cart changes. If an LLM is unavailable, the backend falls back to the local planner so the demo remains usable.
 
 ## Demo Commands
 
@@ -261,7 +278,7 @@ My prompting focused on:
 - Constraining the tech stack
 - Requiring schema validation for AI output
 - Separating frontend, backend, state, and AI parsing logic
-- Prioritizing demo reliability through deterministic fallback parsing
+- Prioritizing demo reliability through a no-key local AI planner
 - Iterating on visual polish and user experience
 
 The prompts used during development are included in `/prompts`.
@@ -269,16 +286,16 @@ The prompts used during development are included in `/prompts`.
 ## Loom Walkthrough Suggested Flow
 
 1. Show that the app opens directly into AI chat, with the manual menu available as a secondary toggle.
-2. Run: “I want something light or healthy.” Show the AI narrowing eight menu items to two choices.
-3. Run: “healthy and filling.” Show the assistant adding the Veggie Power Bowl and asking before drinks.
+2. Run: “I want something light or healthy.” Show the AI narrowing the full menu to two choices.
+3. Run: “healthy and filling.” Show the assistant adding the Pan-Seared Salmon and asking before drinks.
 4. Run: “I need something spicy and under 10 dollars.” Show the assistant refusing the bad match and surfacing options in chat.
 5. Run: “I need something spicy but under 20 dollars.” Show the sandwich added and the drink follow-up question.
 6. Run the “Plan group” shortcut and show budget, vegetarian, mild, and drink guardrails.
-7. Open the JSON panel and show validated structured actions.
+7. Show the AI decision card with confidence, impact metrics, and visible cart diff.
 8. Toggle to the menu briefly to show manual fallback, then return to AI.
-9. Show backend code: route, parser, Zod schema, OpenAI Structured Outputs path, deterministic fallback.
+9. Show backend code: route, parser, Zod schema, no-key local planner, optional Ollama path, and optional OpenAI Structured Outputs path.
 10. Explain prompt workflow in `/prompts`.
 
 ## Engineering Notes
 
-This project intentionally keeps the deterministic fallback parser because internship demos should be reliable even when an external LLM key, rate limit, or network connection fails. If an API key is available, the backend calls OpenAI with Structured Outputs and validates the model result with the same Zod schema before the frontend applies cart mutations.
+This project intentionally defaults to a local semantic order planner because internship demos should be reliable even when an external LLM key, rate limit, or network connection fails. If Ollama is available, the backend can call a local open-source model. If an OpenAI key is available, the backend can use Structured Outputs. In every mode, Zod validates the model/planner result before the frontend applies cart mutations.

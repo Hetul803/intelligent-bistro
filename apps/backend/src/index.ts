@@ -13,13 +13,13 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
-  const provider = process.env.AI_PROVIDER || 'openai';
-  const llmEnabled = provider === 'ollama' || (Boolean(process.env.OPENAI_API_KEY) && provider !== 'mock');
+  const provider = process.env.AI_PROVIDER || 'local';
+  const llmEnabled = provider === 'ollama' || (provider === 'openai' && Boolean(process.env.OPENAI_API_KEY));
   res.json({
     ok: true,
     service: 'intelligent-bistro-backend',
-    mode: provider === 'ollama' ? 'ollama-local-llm' : llmEnabled ? 'llm-enabled' : 'deterministic-demo-parser',
-    model: provider === 'ollama' ? process.env.OLLAMA_MODEL || 'llama3.2:1b' : llmEnabled ? process.env.OPENAI_MODEL || 'gpt-4.1-mini' : 'deterministic-demo-parser'
+    mode: provider === 'ollama' ? 'ollama-local-llm' : llmEnabled ? 'llm-enabled' : 'offline-local-ai',
+    model: provider === 'ollama' ? process.env.OLLAMA_MODEL || 'llama3.2:1b' : llmEnabled ? process.env.OPENAI_MODEL || 'gpt-4.1-mini' : 'local-semantic-order-planner'
   });
 });
 

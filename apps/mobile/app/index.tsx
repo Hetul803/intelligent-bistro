@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Clock3, MessageCircle, ReceiptText, SendHorizonal, ShoppingBag, Sparkles, UtensilsCrossed } from 'lucide-react-native';
 import { menu } from '../constants/menu';
-import { Category, MenuItem, PlacedOrder } from '../types';
+import { AIResponse, Category, MenuItem, PlacedOrder } from '../types';
 import { sendAIOrder } from '../services/api';
 import { useCartStore } from '../store/cartStore';
 
@@ -40,11 +40,17 @@ export default function HomeScreen() {
   const conversation = useCartStore(state => state.conversation);
   const lastAssistantMessage = useCartStore(state => state.lastAssistantMessage);
   const lastSuggestedItems = useCartStore(state => state.lastSuggestedItems);
+  const lastAIResponse = useCartStore(state => state.lastAIResponse);
+  const activeFilter = useCartStore(state => state.activeFilter);
+  const clearFilter = useCartStore(state => state.clearFilter);
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const recommended = menu.filter(item => ['stellar_chocolate_mousse', 'espresso_martini'].includes(item.id));
   const featured = menu.filter(item => ['stellar_chocolate_mousse', 'espresso_martini', 'classic_bistro_burger', 'spicy_chicken_sandwich'].includes(item.id));
-  const visibleMenu = filter === 'All' ? menu : menu.filter(item => item.category === filter);
+  const baseVisibleMenu = filter === 'All' ? menu : menu.filter(item => item.category === filter);
+  const visibleMenu = activeFilter
+    ? menu.filter(item => item.category === activeFilter || item.tags.some(tag => tag.toLowerCase() === activeFilter.toLowerCase()))
+    : baseVisibleMenu;
   const aiSuggested = useMemo(() => {
     const fromAI = menu.filter(item => lastSuggestedItems.includes(item.id));
     return fromAI.length ? fromAI.slice(0, 2) : recommended;
@@ -57,8 +63,13 @@ export default function HomeScreen() {
     setConfirmed(false);
     setTab('order');
     try {
-      const response = await sendAIOrder(text, items);
+      const response = await sendAIOrder(text, items, conversation);
       applyAIResponse(response, text);
+      const filterAction = response.actions.find(action => action.type === 'SHOW_CATEGORY' || action.type === 'SHOW_FILTERED_ITEMS');
+      if (filterAction?.type === 'SHOW_CATEGORY' && menuFilters.includes(filterAction.category as MenuFilter)) {
+        setFilter(filterAction.category as MenuFilter);
+        setTab('menu');
+      }
       setMessage('');
       setAddedMessage('AI built your order. Review customizations or approve it.');
       setTimeout(() => setAddedMessage(null), 2600);
@@ -101,11 +112,12 @@ export default function HomeScreen() {
           lastAssistantMessage={lastAssistantMessage}
           updateQuantity={updateQuantity}
           removeItem={removeItem}
+          lastAIResponse={lastAIResponse}
         />
       );
     }
     if (tab === 'menu') {
-      return <MenuScreen filter={filter} setFilter={setFilter} visibleMenu={visibleMenu} addItem={notifyAdded} width={width} />;
+      return <MenuScreen filter={filter} setFilter={next => { clearFilter(); setFilter(next); }} activeFilter={activeFilter} clearFilter={clearFilter} visibleMenu={visibleMenu} addItem={notifyAdded} width={width} />;
     }
     if (tab === 'cart') {
       return <CartScreen items={items} total={total()} itemCount={itemCount} askAI={() => setTab('order')} checkout={checkout} updateQuantity={updateQuantity} removeItem={removeItem} />;
@@ -226,6 +238,7 @@ function OrderScreen(props: {
   lastAssistantMessage: string;
   updateQuantity: (id: string, quantity: number) => void;
   removeItem: (id: string) => void;
+  lastAIResponse: AIResponse | null;
 }) {
   const quick = ['I want something spicy', 'Healthy lunch under 600 cal', 'Surprise me with dessert'];
   const hasConversation = props.conversation.length > 1;
@@ -265,6 +278,8 @@ function OrderScreen(props: {
           </View>
         )}
 
+        {props.lastAIResponse && hasConversation ? <AIDecisionCard response={props.lastAIResponse} /> : null}
+
         {props.items.length ? (
           <View className="mt-6 rounded-2xl border border-white/10 bg-white/[0.07] p-4">
             <View className="mb-3 flex-row items-center justify-between">
@@ -295,15 +310,7 @@ function OrderScreen(props: {
           </View>
         ) : null}
 
-        {!props.items.length && hasConversation ? (
-          <View className="mt-5 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
-            <Text className="text-base font-black text-white">AI Suggests</Text>
-            <Text className="mt-2 text-sm leading-5 text-neutral-400">{props.lastAssistantMessage}</Text>
-            <View className="mt-4 gap-3">
-              {props.suggested.map(item => <CompactSuggested key={item.id} item={item} onAdd={() => props.addItem(item)} />)}
-            </View>
-          </View>
-        ) : null}
+        {hasConversation ? <SuggestedTray suggested={props.suggested} addItem={props.addItem} lastAssistantMessage={props.lastAssistantMessage} /> : null}
       </View>
 
       <View className="mt-auto border-t border-white/10 px-3 py-3">
@@ -331,7 +338,53 @@ function OrderScreen(props: {
   );
 }
 
-function MenuScreen({ filter, setFilter, visibleMenu, addItem, width }: { filter: MenuFilter; setFilter: (filter: MenuFilter) => void; visibleMenu: MenuItem[]; addItem: (item: MenuItem) => void; width: number }) {
+function AIDecisionCard({ response }: { response: AIResponse }) {
+  const visibleDiff = response.cartDiff.slice(0, 3);
+  const visibleImpact = response.impact.slice(0, 3);
+  return (
+    <View className="mt-5 rounded-2xl border border-[#D9A441]/20 bg-[#17120A] p-4">
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="flex-1">
+          <Text className="text-xs font-black uppercase tracking-widest text-[#F1C46D]">AI decision</Text>
+          <Text className="mt-1 text-sm font-semibold leading-5 text-neutral-200">{response.normalizedIntent}</Text>
+        </View>
+        <View className="rounded-full bg-[#D9A441]/15 px-3 py-2">
+          <Text className="text-xs font-black text-[#F1C46D]">{Math.round(response.confidence * 100)}%</Text>
+        </View>
+      </View>
+      <View className="mt-4 flex-row flex-wrap gap-2">
+        {visibleImpact.map(metric => (
+          <View key={`${metric.label}-${metric.value}`} className="rounded-xl bg-white/[0.07] px-3 py-2">
+            <Text className="text-[10px] font-black uppercase text-neutral-500">{metric.label}</Text>
+            <Text className="mt-1 text-xs font-black text-white">{metric.value}</Text>
+          </View>
+        ))}
+      </View>
+      {visibleDiff.length ? (
+        <View className="mt-4 gap-2">
+          {visibleDiff.map(diff => (
+            <Text key={diff} className="text-xs font-semibold leading-5 text-neutral-300">✣ {diff}</Text>
+          ))}
+        </View>
+      ) : null}
+      <Text className="mt-4 text-[11px] font-semibold text-neutral-500">{response.provider} · {response.model}</Text>
+    </View>
+  );
+}
+
+function SuggestedTray({ suggested, addItem, lastAssistantMessage }: { suggested: MenuItem[]; addItem: (item: MenuItem) => void; lastAssistantMessage: string }) {
+  return (
+    <View className="mt-5 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+      <Text className="text-base font-black text-white">Tap a surfaced option</Text>
+      <Text className="mt-2 text-sm leading-5 text-neutral-400">{lastAssistantMessage}</Text>
+      <View className="mt-4 gap-3">
+        {suggested.map(item => <CompactSuggested key={item.id} item={item} onAdd={() => addItem(item)} />)}
+      </View>
+    </View>
+  );
+}
+
+function MenuScreen({ filter, setFilter, activeFilter, clearFilter, visibleMenu, addItem, width }: { filter: MenuFilter; setFilter: (filter: MenuFilter) => void; activeFilter: string | null; clearFilter: () => void; visibleMenu: MenuItem[]; addItem: (item: MenuItem) => void; width: number }) {
   const cardGap = 12;
   const availableWidth = Math.min(width, 420) - 32;
   const cardWidth = Math.max(150, Math.floor((availableWidth - cardGap) / 2));
@@ -348,6 +401,17 @@ function MenuScreen({ filter, setFilter, visibleMenu, addItem, width }: { filter
           ))}
         </View>
       </ScrollView>
+      {activeFilter ? (
+        <View className="mt-4 flex-row items-center justify-between rounded-2xl border border-[#D9A441]/25 bg-[#D9A441]/10 px-4 py-3">
+          <View>
+            <Text className="text-xs font-black uppercase tracking-widest text-[#F1C46D]">AI-filtered</Text>
+            <Text className="mt-1 text-sm font-semibold text-neutral-200">{activeFilter} · {visibleMenu.length} match{visibleMenu.length === 1 ? '' : 'es'}</Text>
+          </View>
+          <Pressable onPress={clearFilter} className="rounded-full bg-white/10 px-3 py-2">
+            <Text className="text-xs font-black text-white">Clear</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <View className="mt-4 rounded-2xl border border-white/10 bg-white/[0.08] p-4">
         <Text className="font-black text-[#F1C46D]">✣ AI Pick of the Day</Text>
         <Text className="mt-1 text-xs text-neutral-300">Truffle Wagyu Burger pairs perfectly with our Espresso Martini</Text>
