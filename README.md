@@ -15,6 +15,9 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 - Reliable cart state management through both UI and AI
 - Placed-order cancellation through both the Orders screen and conversational AI
 - Calories shown across menu cards, chat suggestions, cart rows, and receipts
+- Loom demo reset for clean walkthroughs
+- Structured JSON preview for every AI response
+- Kitchen timeline and reorder flow for placed orders
 - Backend schema validation with Zod
 - No-key local AI planner by default, with optional Ollama open-source LLM or OpenAI Structured Outputs support
 - Clean monorepo structure
@@ -276,6 +279,12 @@ Cancel my order
 
 This demonstrates post-checkout order state management through the same structured AI action contract.
 
+```txt
+Build dinner for two under 900 calories each
+```
+
+This demonstrates multi-guest planning with calorie guardrails.
+
 ## AI Development Workflow
 
 I used Claude as a rapid full-stack development partner, but I treated it like an engineering accelerator, not a replacement for architecture decisions.
@@ -294,15 +303,15 @@ The prompts used during development are included in `/prompts`.
 ## Loom Walkthrough Suggested Flow
 
 1. Show that the app opens directly into AI chat, with the manual menu available as a secondary toggle.
-2. Run: “I want something light or healthy.” Show the AI narrowing the full menu to two choices.
-3. Run: “healthy and filling.” Show the assistant adding the Pan-Seared Salmon and asking before drinks.
-4. Run: “I need something spicy and under 10 dollars.” Show the assistant refusing the bad match and surfacing options in chat.
-5. Run: “I need something spicy but under 20 dollars.” Show the sandwich added and the drink follow-up question.
-6. Run the “Plan group” shortcut and show budget, vegetarian, mild, and drink guardrails.
-7. Show the AI decision card with confidence, impact metrics, and visible cart diff.
-8. Toggle to the menu briefly to show manual fallback, then return to AI.
-9. Show backend code: route, parser, Zod schema, no-key local planner, optional Ollama path, and optional OpenAI Structured Outputs path.
-10. Explain prompt workflow in `/prompts`.
+2. Tap “Reset Loom Demo” so the walkthrough starts clean.
+3. Run: “Build dinner for two under 900 calories each.” Show calorie-aware planning and the AI decision card.
+4. Expand “Structured JSON” and show validated cart actions.
+5. Run: “remove sauce” or “pair a drink” to demonstrate chat-based item edits.
+6. Approve the order and show receipt calories plus kitchen timeline.
+7. Cancel the order from the Orders screen, then mention “Cancel my order” also works from chat.
+8. Tap Reorder to Cart to show lifecycle polish.
+9. Toggle to the menu briefly to show manual fallback, then return to AI.
+10. Show backend code: route, parser, Zod schema, no-key local planner, optional Ollama path, and optional OpenAI Structured Outputs path.
 
 ## Engineering Notes
 

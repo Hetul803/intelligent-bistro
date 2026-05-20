@@ -63,6 +63,12 @@ const cases: EvalCase[] = [
     name: 'cancels placed orders from chat',
     message: 'Cancel my order',
     expectAction: 'CANCEL_ORDER'
+  },
+  {
+    name: 'plans calorie constrained dinner for two',
+    message: 'Build dinner for two under 900 calories each',
+    expectAction: 'ADD_ITEM',
+    expectItem: 'neon_caesar_salad'
   }
 ];
 

@@ -36,6 +36,8 @@ export default function HomeScreen() {
   const removeItem = useCartStore(state => state.removeItem);
   const placeOrder = useCartStore(state => state.placeOrder);
   const cancelOrder = useCartStore(state => state.cancelOrder);
+  const reorderOrder = useCartStore(state => state.reorderOrder);
+  const resetDemo = useCartStore(state => state.resetDemo);
   const orders = useCartStore(state => state.orders);
   const applyAIResponse = useCartStore(state => state.applyAIResponse);
   const conversation = useCartStore(state => state.conversation);
@@ -124,9 +126,9 @@ export default function HomeScreen() {
       return <CartScreen items={items} total={total()} itemCount={itemCount} askAI={() => setTab('order')} checkout={checkout} updateQuantity={updateQuantity} removeItem={removeItem} />;
     }
     if (tab === 'orders') {
-      return <OrdersScreen confirmed={confirmed} orders={orders} cancelOrder={cancelOrder} />;
+      return <OrdersScreen confirmed={confirmed} orders={orders} cancelOrder={cancelOrder} reorderOrder={orderId => { reorderOrder(orderId); setTab('cart'); }} />;
     }
-    return <ConciergeHome askAI={askAI} recommended={recommended} featured={featured} addItem={notifyAdded} goOrder={() => setTab('order')} />;
+    return <ConciergeHome askAI={askAI} recommended={recommended} featured={featured} addItem={notifyAdded} goOrder={() => setTab('order')} resetDemo={resetDemo} />;
   };
 
   return (
@@ -176,7 +178,7 @@ function Orb({ size = 88 }: { size?: number }) {
   );
 }
 
-function ConciergeHome({ askAI, recommended, featured, addItem, goOrder }: { askAI: (prompt: string) => void; recommended: MenuItem[]; featured: MenuItem[]; addItem: (item: MenuItem) => void; goOrder: () => void }) {
+function ConciergeHome({ askAI, recommended, featured, addItem, goOrder, resetDemo }: { askAI: (prompt: string) => void; recommended: MenuItem[]; featured: MenuItem[]; addItem: (item: MenuItem) => void; goOrder: () => void; resetDemo: () => void }) {
   return (
     <View className="px-4 pt-9">
       <View className="items-center">
@@ -190,7 +192,7 @@ function ConciergeHome({ askAI, recommended, featured, addItem, goOrder }: { ask
       <View className="mt-6 gap-3">
         {[
           'Add two spicy chicken sandwiches',
-          'Build me a healthy lunch',
+          'Build dinner for two under 900 calories each',
           'Make my burger vegetarian',
           'What pairs well with truffle fries?'
         ].map(prompt => (
@@ -205,6 +207,9 @@ function ConciergeHome({ askAI, recommended, featured, addItem, goOrder }: { ask
           <Text className="text-base font-black text-black">Order with AI</Text>
           <Text className="text-xl text-black">›</Text>
         </LinearGradient>
+      </Pressable>
+      <Pressable onPress={resetDemo} className="mt-3 items-center rounded-full border border-white/10 bg-white/[0.05] py-3">
+        <Text className="text-xs font-black uppercase tracking-widest text-neutral-300">Reset Loom Demo</Text>
       </Pressable>
 
       <SectionHeader title="AI Recommends" icon="↗" />
@@ -340,8 +345,10 @@ function OrderScreen(props: {
 }
 
 function AIDecisionCard({ response }: { response: AIResponse }) {
+  const [showJson, setShowJson] = useState(false);
   const visibleDiff = response.cartDiff.slice(0, 3);
   const visibleImpact = response.impact.slice(0, 3);
+  const actionTypes = Array.from(new Set(response.actions.map(action => action.type.replaceAll('_', ' ')))).slice(0, 3);
   return (
     <View className="mt-5 rounded-2xl border border-[#D9A441]/20 bg-[#17120A] p-4">
       <View className="flex-row items-center justify-between gap-3">
@@ -354,6 +361,11 @@ function AIDecisionCard({ response }: { response: AIResponse }) {
         </View>
       </View>
       <View className="mt-4 flex-row flex-wrap gap-2">
+        {actionTypes.map(action => (
+          <View key={action} className="rounded-xl bg-[#D9A441]/12 px-3 py-2">
+            <Text className="text-[10px] font-black uppercase text-[#F1C46D]">{action}</Text>
+          </View>
+        ))}
         {visibleImpact.map(metric => (
           <View key={`${metric.label}-${metric.value}`} className="rounded-xl bg-white/[0.07] px-3 py-2">
             <Text className="text-[10px] font-black uppercase text-neutral-500">{metric.label}</Text>
@@ -366,6 +378,16 @@ function AIDecisionCard({ response }: { response: AIResponse }) {
           {visibleDiff.map(diff => (
             <Text key={diff} className="text-xs font-semibold leading-5 text-neutral-300">✣ {diff}</Text>
           ))}
+        </View>
+      ) : null}
+      <Pressable onPress={() => setShowJson(!showJson)} className="mt-4 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2">
+        <Text className="text-xs font-black text-neutral-200">{showJson ? 'Hide' : 'Show'} Structured JSON</Text>
+      </Pressable>
+      {showJson ? (
+        <View className="mt-3 rounded-xl bg-black/40 p-3">
+          <Text className="text-[10px] font-semibold leading-4 text-neutral-300">
+            {JSON.stringify({ actions: response.actions, suggestedItems: response.suggestedItems, needsClarification: response.needsClarification }, null, 2)}
+          </Text>
         </View>
       ) : null}
       <Text className="mt-4 text-[11px] font-semibold text-neutral-500">{response.provider} · {response.model}</Text>
@@ -456,7 +478,7 @@ function CartScreen({ items, total, itemCount, askAI, checkout, updateQuantity, 
   );
 }
 
-function OrdersScreen({ orders, cancelOrder }: { confirmed: boolean; orders: PlacedOrder[]; cancelOrder: (orderId?: string) => boolean }) {
+function OrdersScreen({ orders, cancelOrder, reorderOrder }: { confirmed: boolean; orders: PlacedOrder[]; cancelOrder: (orderId?: string) => boolean; reorderOrder: (orderId: string) => void }) {
   const latest = orders[0];
   const latestCalories = latest?.items.reduce((sum, item) => sum + item.calories * item.quantity, 0) || 0;
   const canCancelLatest = latest?.status === 'confirmed' || latest?.status === 'preparing';
@@ -485,10 +507,16 @@ function OrdersScreen({ orders, cancelOrder }: { confirmed: boolean; orders: Pla
           ) : null}
         </View>
       </View>
+      {latest ? <KitchenTimeline status={latest.status} /> : null}
       {latest ? (
         <View className="mt-4 gap-3">
           {latest.items.map(item => <OrderLine key={`${latest.id}-${item.id}`} item={item} updateQuantity={() => undefined} removeItem={() => undefined} readonly />)}
         </View>
+      ) : null}
+      {latest ? (
+        <Pressable onPress={() => reorderOrder(latest.id)} className="mt-4 rounded-full border border-[#D9A441]/30 bg-[#D9A441]/10 py-3">
+          <Text className="text-center font-black text-[#F1C46D]">Reorder to Cart</Text>
+        </Pressable>
       ) : null}
       <View className="mt-4 rounded-2xl border border-white/10 bg-white/[0.08] p-5">
         <View className="flex-row items-center gap-2">
@@ -521,11 +549,35 @@ function OrdersScreen({ orders, cancelOrder }: { confirmed: boolean; orders: Pla
                   <Text className="text-xs font-black text-red-200">Cancel order</Text>
                 </Pressable>
               ) : null}
+              <Pressable onPress={() => reorderOrder(order.id)} className="mt-3 self-start rounded-full bg-white/10 px-3 py-2">
+                <Text className="text-xs font-black text-neutral-200">Reorder</Text>
+              </Pressable>
             </View>
           ))}
         </View>
       ) : null}
       <Text className="mt-9 text-center text-base font-semibold text-neutral-500">Thank you for dining with The Intelligent Bistro</Text>
+    </View>
+  );
+}
+
+function KitchenTimeline({ status }: { status: PlacedOrder['status'] }) {
+  const steps = status === 'cancelled' ? ['Received', 'Cancelled'] : ['Received', 'Preparing', 'Ready'];
+  const activeIndex = status === 'cancelled' ? 1 : status === 'preparing' ? 1 : 0;
+  return (
+    <View className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+      <Text className="mb-3 text-sm font-black uppercase tracking-widest text-neutral-400">Kitchen Timeline</Text>
+      <View className="flex-row items-center justify-between">
+        {steps.map((step, index) => {
+          const active = index <= activeIndex;
+          return (
+            <View key={step} className="flex-1 items-center">
+              <View className={`h-3 w-3 rounded-full ${active ? 'bg-[#D9A441]' : 'bg-white/15'}`} />
+              <Text className={`mt-2 text-[11px] font-black ${active ? 'text-[#F1C46D]' : 'text-neutral-500'}`}>{step}</Text>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }

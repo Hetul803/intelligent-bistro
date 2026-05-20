@@ -22,6 +22,8 @@ type CartStore = {
   clearCart: () => void;
   clearFilter: () => void;
   cancelOrder: (orderId?: string) => boolean;
+  reorderOrder: (orderId: string) => boolean;
+  resetDemo: () => void;
   placeOrder: () => PlacedOrder | null;
   applyActions: (actions: AIAction[], assistantMessage: string, intent?: string, suggestedItems?: string[]) => void;
   applyAIResponse: (response: AIResponse, intent: string) => void;
@@ -160,6 +162,36 @@ export const useCartStore = create<CartStore>((set, get) => ({
       lastUpdatedAt: Date.now()
     });
     return true;
+  },
+
+  reorderOrder: orderId => {
+    const order = get().orders.find(item => item.id === orderId);
+    if (!order) return false;
+    set({
+      history: [...get().history, [...get().items]].slice(-10),
+      items: order.items.map(item => ({ ...item, lastTouchedAt: Date.now() })),
+      lastAssistantMessage: 'I restored that order into your active cart so you can adjust or approve it again.',
+      lastUserIntent: 'Reorder previous meal',
+      lastActions: order.items.map(item => ({ type: 'ADD_ITEM', itemId: item.id, quantity: item.quantity })),
+      lastUpdatedAt: Date.now()
+    });
+    return true;
+  },
+
+  resetDemo: () => {
+    set({
+      items: [],
+      orders: [],
+      lastAssistantMessage: 'Demo reset. Try “Build dinner for two under 900 calories each.”',
+      lastUserIntent: 'Demo reset',
+      lastActions: [{ type: 'NO_OP' }],
+      lastSuggestedItems: ['spicy_chicken_sandwich', 'neon_caesar_salad', 'espresso_martini'],
+      lastAIResponse: null,
+      conversation: [createMessage('assistant', 'Demo reset. What should I plan first?')],
+      activeFilter: null,
+      history: [],
+      lastUpdatedAt: Date.now()
+    });
   },
 
   applyActions: (actions, assistantMessage, intent = get().lastUserIntent, suggestedItems = []) => {

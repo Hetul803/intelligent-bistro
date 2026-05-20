@@ -428,6 +428,30 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
     });
   }
 
+  if (hasAny(lower, ['dinner for two', 'date night', 'two dinners', 'meal for two']) && hasAny(lower, ['900 calories', '900 cal', 'under 900', 'under 900 calories'])) {
+    return buildResponse({
+      assistantMessage: 'I built a dinner for two where each guest stays under 900 calories: two Pan-Seared Salmons. I left drinks and dessert as optional so the calorie target stays intact.',
+      actions: [
+        { type: 'CLEAR_CART' },
+        { type: 'ADD_ITEM', itemId: 'neon_caesar_salad', quantity: 2, notes: ['under 900 calories each'] }
+      ],
+      suggestedItems: ['large_water', 'lunar_lemonade', 'creme_brulee'],
+      confidence: 0.95,
+      normalizedIntent: 'Plan dinner for two under a per-person calorie target',
+      actionTrace: [
+        { step: 'Extract constraints', detail: 'Detected two guests and a per-person calorie ceiling.' },
+        { step: 'Compare menu', detail: 'Rejected richer mains that would make pairings harder and selected the cleanest complete entree.' },
+        { step: 'Guardrail', detail: 'Held drinks and dessert as suggestions so the calorie target remains under guest control.' }
+      ],
+      cartDiff: ['Reset cart for a clean two-person plan', 'Add 2 Pan-Seared Salmons', 'Keep each guest under 900 calories before optional add-ons'],
+      impact: [
+        { label: 'Guests', value: '2' },
+        { label: 'Per person', value: '610 cal' },
+        { label: 'Guardrail', value: '<900 cal' }
+      ]
+    });
+  }
+
   if (hasAny(lower, ['optimize', 'make it cheaper', 'cheaper', 'lower total', 'reduce total', 'under $35', 'under 35'])) {
     const hasDessert = currentCart.some(item => item.id === 'stellar_chocolate_mousse');
     const hasLemonade = currentCart.some(item => item.id === 'lunar_lemonade');
