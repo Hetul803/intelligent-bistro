@@ -8,7 +8,7 @@ The goal is to create a polished React Native Expo app with a Node.js backend wh
 
 I want this to look like something I can confidently demo in a 5-minute Loom video, not just a basic assignment.
 
-Use Expo React Native, TypeScript, Zustand, Node.js, Express, and Zod. Include an LLM-compatible backend service, but also include a deterministic fallback parser so the app works reliably without an API key.
+Use Expo React Native, TypeScript, Zustand, Node.js, Express, and Zod. Include an LLM-compatible backend service, but make the default experience run through a no-key local ordering planner so the app works reliably without setup.
 
 The app needs:
 
@@ -19,7 +19,10 @@ The app needs:
 - Natural language cart updates
 - Structured JSON actions
 - Backend validation
+- Order cancellation
+- Calorie-aware planning
 - README
+- Architecture diagram
 - Demo commands
 - Clean repo structure
 

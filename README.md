@@ -4,6 +4,24 @@ A futuristic AI-powered restaurant ordering experience built for the Viridien AI
 
 The app combines a high-fidelity Expo React Native mobile interface with a Node.js backend that turns natural language ordering requests into structured, validated cart actions.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  User["Guest / Recruiter"] --> Expo["Expo React Native App"]
+  Expo --> UI["AI-first mobile UI\nConcierge, Menu, Cart, Orders"]
+  UI --> Store["Zustand State\ncart, orders, chat history"]
+  UI --> API["Backend API\nPOST /api/ai/order"]
+  API --> Planner["Ordering Intelligence\nlocal planner by default"]
+  Planner --> Schema["Zod Validation\nstructured actions"]
+  Schema --> Actions["Cart / Order Actions\nADD, REMOVE, UPDATE,\nCLEAR, CANCEL, FILTER"]
+  Actions --> Store
+  API -. optional .-> Ollama["Ollama local LLM"]
+  API -. optional .-> OpenAI["OpenAI Structured Outputs"]
+```
+
+The default path is intentionally no-key and no-download: natural language is parsed by a local ordering planner, validated with Zod, and applied to the mobile state store as explicit actions. Optional model integrations are isolated behind the backend service layer.
+
 ## What this demonstrates
 
 - Premium mobile UI and interaction design
@@ -21,7 +39,7 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 - Backend schema validation with Zod
 - No-key local AI planner by default, with optional Ollama open-source LLM or OpenAI Structured Outputs support
 - Clean monorepo structure
-- Prompt-driven AI development workflow included in `/prompts`
+- AI-assisted development workflow documented in `/prompts`
 
 ## Stack
 
@@ -52,7 +70,6 @@ intelligent-bistro/
   apps/
     mobile/
       app/
-      components/
       constants/
       services/
       store/
@@ -64,6 +81,7 @@ intelligent-bistro/
         schemas/
         services/
   prompts/
+  docs/
   README.md
 ```
 
@@ -105,6 +123,13 @@ Then open:
 ```txt
 http://localhost:8081
 ```
+
+## Submission Checklist
+
+- `npm run typecheck`
+- `npm run eval:ai`
+- Loom walkthrough showing architecture, UI, AI-driven cart updates, checkout, cancellation, and code structure
+- GitHub repository link submitted with the Loom URL
 
 ## AI Modes
 
@@ -157,7 +182,7 @@ The assistant scans the full menu, narrows the choice to two options, and asks o
 healthy and filling
 ```
 
-The assistant resolves the follow-up by adding the Veggie Power Bowl and asking before adding a drink.
+The assistant resolves the follow-up by adding the Pan-Seared Salmon and asking before adding a drink.
 
 ```txt
 double it
@@ -177,7 +202,7 @@ These demonstrate chat-based item editing against the current cart.
 Build a group order for 4 people under $60 total, one vegetarian, no spicy items
 ```
 
-The assistant clears the cart and builds a constrained group order that stays under budget after estimated tax while preserving vegetarian and mild options. Because no drink was requested, it asks before adding beverages.
+The assistant compares the premium menu against the constraints, avoids spicy items, flags when a full entree order cannot honestly fit the budget, and asks before adding beverages.
 
 ```txt
 clear the entire order
@@ -285,9 +310,9 @@ Build dinner for two under 900 calories each
 
 This demonstrates multi-guest planning with calorie guardrails.
 
-## AI Development Workflow
+## AI-Assisted Development Workflow
 
-I used Claude as a rapid full-stack development partner, but I treated it like an engineering accelerator, not a replacement for architecture decisions.
+I used AI coding tools as an engineering accelerator for scaffolding, iteration, and test generation, while keeping the architecture, schema boundaries, and product decisions explicit.
 
 My prompting focused on:
 
@@ -298,7 +323,7 @@ My prompting focused on:
 - Prioritizing demo reliability through a no-key local AI planner
 - Iterating on visual polish and user experience
 
-The prompts used during development are included in `/prompts`.
+Selected prompts used during development are included in `/prompts` to show how the work was planned and refined.
 
 ## Loom Walkthrough Suggested Flow
 
