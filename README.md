@@ -13,6 +13,8 @@ The app combines a high-fidelity Expo React Native mobile interface with a Node.
 - In-chat item option cards so guests can choose surfaced recommendations without browsing the full menu
 - Visible AI transaction trace: normalized intent, confidence, provider/model, impact metrics, cart diff, and JSON action preview
 - Reliable cart state management through both UI and AI
+- Placed-order cancellation through both the Orders screen and conversational AI
+- Calories shown across menu cards, chat suggestions, cart rows, and receipts
 - Backend schema validation with Zod
 - No-key local AI planner by default, with optional Ollama open-source LLM or OpenAI Structured Outputs support
 - Clean monorepo structure
@@ -267,6 +269,12 @@ Add a burger
 ```
 
 The last command demonstrates clarification handling.
+
+```txt
+Cancel my order
+```
+
+This demonstrates post-checkout order state management through the same structured AI action contract.
 
 ## AI Development Workflow
 

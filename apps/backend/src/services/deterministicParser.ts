@@ -70,6 +70,7 @@ function describeAction(action: AIOrderResponse['actions'][number]) {
     return `Modify ${name}${modifiers.length || notes.length ? ` (${[...modifiers, ...notes].join(', ')})` : ''}`;
   }
   if (action.type === 'CLEAR_CART') return 'Clear the cart';
+  if (action.type === 'CANCEL_ORDER') return 'Cancel latest placed order';
   if (action.type === 'SHOW_CATEGORY') return `Show ${action.category} items`;
   if (action.type === 'SHOW_FILTERED_ITEMS') return `Filter menu by ${action.filter}`;
   return 'No cart change';
@@ -153,6 +154,26 @@ export function deterministicParse(message: string, cart: unknown = []): AIOrder
   const summaries: string[] = [];
   const budgetLimit = dollarLimit(lower);
   const wantsSpicy = lower.includes('spicy') && !hasAny(lower, ['no spicy', 'no-spicy', 'not spicy', 'less spicy', 'make it mild']);
+
+  if (hasAny(lower, ['cancel order', 'cancel my order', 'cancel the order', 'cancel latest order', 'void order', 'void my order', 'stop the order'])) {
+    return buildResponse({
+      assistantMessage: 'I cancelled the latest active order and marked it as refunded in the receipt view.',
+      actions: [{ type: 'CANCEL_ORDER' }],
+      confidence: 0.94,
+      normalizedIntent: 'Cancel the latest placed order',
+      actionTrace: [
+        { step: 'Read intent', detail: 'Detected an order-level cancellation request instead of a cart edit.' },
+        { step: 'Validate', detail: 'Targeted the most recent active placed order so past delivered/cancelled orders are not changed.' },
+        { step: 'Apply', detail: 'Return a structured cancellation action for the client order store.' }
+      ],
+      cartDiff: ['Cancel latest active order', 'Keep receipt visible with cancelled status'],
+      impact: [
+        { label: 'Order state', value: 'Cancelled' },
+        { label: 'Scope', value: 'Latest active' },
+        { label: 'Cart ops', value: '0' }
+      ]
+    });
+  }
 
   if (hasAny(lower, ['clear cart', 'clear my cart', 'clear order', 'clear the order', 'clear the entire order', 'start over', 'empty cart', 'empty order', 'remove all', 'remove everything', 'remove all the items', 'delete everything'])) {
     return buildResponse({

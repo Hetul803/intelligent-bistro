@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const updateQuantity = useCartStore(state => state.updateQuantity);
   const removeItem = useCartStore(state => state.removeItem);
   const placeOrder = useCartStore(state => state.placeOrder);
+  const cancelOrder = useCartStore(state => state.cancelOrder);
   const orders = useCartStore(state => state.orders);
   const applyAIResponse = useCartStore(state => state.applyAIResponse);
   const conversation = useCartStore(state => state.conversation);
@@ -123,7 +124,7 @@ export default function HomeScreen() {
       return <CartScreen items={items} total={total()} itemCount={itemCount} askAI={() => setTab('order')} checkout={checkout} updateQuantity={updateQuantity} removeItem={removeItem} />;
     }
     if (tab === 'orders') {
-      return <OrdersScreen confirmed={confirmed} orders={orders} />;
+      return <OrdersScreen confirmed={confirmed} orders={orders} cancelOrder={cancelOrder} />;
     }
     return <ConciergeHome askAI={askAI} recommended={recommended} featured={featured} addItem={notifyAdded} goOrder={() => setTab('order')} />;
   };
@@ -295,7 +296,7 @@ function OrderScreen(props: {
               <Text className="font-black text-[#F1C46D]">Want to customize it?</Text>
               <Text className="mt-1 text-xs leading-5 text-neutral-300">Ask me to remove an ingredient, add a side, pair a drink, or send it as-is.</Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
-                {['remove sauce', 'add ranch', 'pair a drink'].map(prompt => (
+                {['remove sauce', 'add ranch', 'pair a drink', 'cancel order'].map(prompt => (
                   <Pressable key={prompt} onPress={() => props.askAI(prompt)} className="rounded-full bg-white/10 px-3 py-2">
                     <Text className="text-xs font-black text-neutral-200">{prompt}</Text>
                   </Pressable>
@@ -455,24 +456,33 @@ function CartScreen({ items, total, itemCount, askAI, checkout, updateQuantity, 
   );
 }
 
-function OrdersScreen({ orders }: { confirmed: boolean; orders: PlacedOrder[] }) {
+function OrdersScreen({ orders, cancelOrder }: { confirmed: boolean; orders: PlacedOrder[]; cancelOrder: (orderId?: string) => boolean }) {
   const latest = orders[0];
+  const latestCalories = latest?.items.reduce((sum, item) => sum + item.calories * item.quantity, 0) || 0;
+  const canCancelLatest = latest?.status === 'confirmed' || latest?.status === 'preparing';
   return (
     <View className="min-h-screen px-4 pt-14">
       <View className="items-center">
         <Orb size={110} />
         <View className="mt-4 items-center">
-          <Text className="text-4xl font-black text-white" style={serif}>{latest ? 'Order Confirmed' : 'No Active Orders'}</Text>
-          <Text className="mt-2 text-center text-base text-neutral-400">{latest ? 'Your AI-curated dining experience is on its way' : 'Place an order and your receipt will appear here'}</Text>
+          <Text className="text-4xl font-black text-white" style={serif}>{latest ? (latest.status === 'cancelled' ? 'Order Cancelled' : 'Order Confirmed') : 'No Active Orders'}</Text>
+          <Text className="mt-2 text-center text-base text-neutral-400">{latest ? (latest.status === 'cancelled' ? 'Your receipt is saved and the kitchen ticket is closed' : 'Your AI-curated dining experience is on its way') : 'Place an order and your receipt will appear here'}</Text>
         </View>
       </View>
       <View className="mt-7 rounded-2xl border border-[#D9A441]/25 bg-white/[0.08] p-5" style={{ shadowColor: gold, shadowOpacity: 0.28, shadowRadius: 18 }}>
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="flex-row items-center gap-3">
           <Clock3 size={18} color={gold} />
           <View>
-            <Text className="text-sm text-neutral-400">Estimated Delivery</Text>
-            <Text className="text-xl font-black text-[#F1C46D]">{latest ? latest.etaMinutes : '--'}</Text>
+            <Text className="text-sm text-neutral-400">{latest?.status === 'cancelled' ? 'Order Status' : 'Estimated Delivery'}</Text>
+            <Text className="text-xl font-black text-[#F1C46D]">{latest ? (latest.status === 'cancelled' ? 'Cancelled' : latest.etaMinutes) : '--'}</Text>
           </View>
+          </View>
+          {canCancelLatest ? (
+            <Pressable onPress={() => cancelOrder(latest.id)} className="rounded-full bg-red-400/15 px-3 py-2">
+              <Text className="text-xs font-black text-red-200">Cancel</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
       {latest ? (
@@ -486,6 +496,7 @@ function OrdersScreen({ orders }: { confirmed: boolean; orders: PlacedOrder[] })
           <Text className="text-lg font-black text-white">Receipt</Text>
         </View>
         <View className="my-5 h-px bg-white/10" />
+        <ReceiptTextRow label="Calories" value={`${latestCalories} cal`} />
         <ReceiptRow label="Subtotal" value={latest?.subtotal || 0} />
         <ReceiptRow label="Tax" value={latest?.tax || 0} />
         <View className="my-4 h-px bg-white/10" />
@@ -499,9 +510,17 @@ function OrdersScreen({ orders }: { confirmed: boolean; orders: PlacedOrder[] })
           <Text className="mb-3 text-lg font-black text-white">Previous Orders</Text>
           {orders.slice(1).map(order => (
             <View key={order.id} className="mb-3 rounded-2xl bg-white/[0.06] p-4">
-              <Text className="font-black text-white">{order.items.reduce((sum, item) => sum + item.quantity, 0)} item{order.items.length === 1 ? '' : 's'}</Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="font-black text-white">{order.items.reduce((sum, item) => sum + item.quantity, 0)} item{order.items.length === 1 ? '' : 's'}</Text>
+                <Text className={`text-xs font-black ${order.status === 'cancelled' ? 'text-red-200' : 'text-emerald-300'}`}>{order.status}</Text>
+              </View>
               <Text className="mt-1 text-sm text-neutral-400">{new Date(order.placedAt).toLocaleString()}</Text>
-              <Text className="mt-2 font-black text-[#F1C46D]">${order.total.toFixed(2)}</Text>
+              <Text className="mt-2 font-black text-[#F1C46D]">${order.total.toFixed(2)} · {order.items.reduce((sum, item) => sum + item.calories * item.quantity, 0)} cal</Text>
+              {order.status === 'confirmed' || order.status === 'preparing' ? (
+                <Pressable onPress={() => cancelOrder(order.id)} className="mt-3 self-start rounded-full bg-red-400/15 px-3 py-2">
+                  <Text className="text-xs font-black text-red-200">Cancel order</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </View>
@@ -617,7 +636,7 @@ function CompactSuggested({ item, onAdd }: { item: MenuItem; onAdd: () => void }
       <View className="flex-1">
         <Text className="font-black text-white">{item.name}</Text>
         <Text className="mt-1 text-xs leading-4 text-neutral-400" numberOfLines={2}>{item.ingredients.join(', ')}</Text>
-        <Text className="mt-2 font-black text-[#F1C46D]">${item.price.toFixed(2)}</Text>
+        <Text className="mt-2 font-black text-[#F1C46D]">${item.price.toFixed(2)} · {item.calories} cal</Text>
       </View>
     </Pressable>
   );
@@ -634,6 +653,7 @@ function OrderLine({ item, updateQuantity, removeItem, readonly = false }: { ite
           <Text className="font-black text-white">{item.name}</Text>
           <Text className="mt-1 text-xs leading-4 text-neutral-400" numberOfLines={2}>{ingredients.join(', ')}</Text>
           {removed.length ? <Text className="mt-1 text-xs font-semibold text-[#F1C46D]">Removed: {removed.join(', ')}</Text> : null}
+          <Text className="mt-1 text-xs font-black text-[#F1C46D]">{item.calories * item.quantity} cal</Text>
           {item.notes?.length ? <Text className="mt-1 text-xs font-semibold text-emerald-300">{item.notes.join(', ')}</Text> : null}
           <View className="mt-3 flex-row items-center justify-between">
             <Text className="font-black text-[#F1C46D]">${(item.price * item.quantity).toFixed(2)}</Text>
@@ -659,6 +679,15 @@ function ReceiptRow({ label, value }: { label: string; value: number }) {
     <View className="mb-3 flex-row items-center justify-between">
       <Text className="text-neutral-400">{label}</Text>
       <Text className="font-black text-neutral-200">${value.toFixed(2)}</Text>
+    </View>
+  );
+}
+
+function ReceiptTextRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="mb-3 flex-row items-center justify-between">
+      <Text className="text-neutral-400">{label}</Text>
+      <Text className="font-black text-neutral-200">{value}</Text>
     </View>
   );
 }

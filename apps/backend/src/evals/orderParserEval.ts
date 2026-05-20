@@ -58,6 +58,11 @@ const cases: EvalCase[] = [
     message: 'Add a burger',
     expectAction: 'NO_OP',
     expectClarification: true
+  },
+  {
+    name: 'cancels placed orders from chat',
+    message: 'Cancel my order',
+    expectAction: 'CANCEL_ORDER'
   }
 ];
 

@@ -21,6 +21,7 @@ type CartStore = {
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
   clearFilter: () => void;
+  cancelOrder: (orderId?: string) => boolean;
   placeOrder: () => PlacedOrder | null;
   applyActions: (actions: AIAction[], assistantMessage: string, intent?: string, suggestedItems?: string[]) => void;
   applyAIResponse: (response: AIResponse, intent: string) => void;
@@ -146,6 +147,21 @@ export const useCartStore = create<CartStore>((set, get) => ({
     return order;
   },
 
+  cancelOrder: orderId => {
+    const target = orderId
+      ? get().orders.find(order => order.id === orderId)
+      : get().orders.find(order => order.status === 'confirmed' || order.status === 'preparing');
+    if (!target || target.status === 'cancelled' || target.status === 'delivered') return false;
+    set({
+      orders: get().orders.map(order => (order.id === target.id ? { ...order, status: 'cancelled' } : order)),
+      lastAssistantMessage: 'I cancelled the latest active order. The receipt is still available in Orders.',
+      lastUserIntent: 'Cancel placed order',
+      lastActions: [{ type: 'CANCEL_ORDER', orderId: target.id }],
+      lastUpdatedAt: Date.now()
+    });
+    return true;
+  },
+
   applyActions: (actions, assistantMessage, intent = get().lastUserIntent, suggestedItems = []) => {
     const snapshot = [...get().items];
     let nextItems = [...get().items];
@@ -156,6 +172,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
       if (action.type === 'CLEAR_CART') {
         nextItems = [];
         nextFilter = null;
+      }
+      if (action.type === 'CANCEL_ORDER') {
+        get().cancelOrder(action.orderId);
       }
       if (action.type === 'SHOW_FILTERED_ITEMS') {
         nextFilter = action.filter || null;

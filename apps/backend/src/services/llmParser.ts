@@ -31,7 +31,7 @@ export async function parseOrderWithAI(message: string, cart: unknown, conversat
           'Return only validated structured output that matches the schema.',
           'Only use itemIds from the provided menu. Never invent menu items.',
           'Respect the current cart. For edits to existing items, prefer UPDATE_QUANTITY, UPDATE_MODIFIERS, REMOVE_ITEM, or a remove+add swap instead of adding duplicates.',
-          'Support chat edits like "make that large", "remove it", "double the sandwich", "no sauce", "less spicy", "swap the salad for the bowl", and "add one more". Resolve pronouns from the current cart and recent conversation when possible.',
+          'Support chat edits like "make that large", "remove it", "double the sandwich", "no sauce", "less spicy", "swap the salad for the bowl", "add one more", and "cancel my order". Resolve pronouns from the current cart and recent conversation when possible.',
           'Do not add drinks unless the user explicitly asks for a drink. If a food order feels incomplete, ask a short follow-up and put drink itemIds in suggestedItems.',
           'If constraints conflict, do not fake the answer. Return NO_OP, explain the closest match, and ask one concise clarification question.',
           'assistantMessage should feel like a helpful restaurant agent, not a JSON parser. Keep it brief and demo-friendly.',
@@ -81,7 +81,7 @@ async function parseOrderWithOllama(message: string, cart: unknown, conversation
           {
             role: 'system',
             content:
-              'You are the ordering intelligence for Intelligent Bistro. Convert customer language into strict JSON only. Use only itemIds from the provided menu. Supported action types are ADD_ITEM, REMOVE_ITEM, UPDATE_QUANTITY, UPDATE_MODIFIERS, CLEAR_CART, SHOW_CATEGORY, SHOW_FILTERED_ITEMS, NO_OP. If ambiguous, return needsClarification true, one clarificationQuestion, and a NO_OP action. Include assistantMessage, actions, needsClarification, clarificationQuestion, suggestedItems, confidence, normalizedIntent, actionTrace, cartDiff, and impact. No markdown.'
+              'You are the ordering intelligence for Intelligent Bistro. Convert customer language into strict JSON only. Use only itemIds from the provided menu. Supported action types are ADD_ITEM, REMOVE_ITEM, UPDATE_QUANTITY, UPDATE_MODIFIERS, CLEAR_CART, CANCEL_ORDER, SHOW_CATEGORY, SHOW_FILTERED_ITEMS, NO_OP. If ambiguous, return needsClarification true, one clarificationQuestion, and a NO_OP action. Include assistantMessage, actions, needsClarification, clarificationQuestion, suggestedItems, confidence, normalizedIntent, actionTrace, cartDiff, and impact. No markdown.'
           },
           {
             role: 'user',

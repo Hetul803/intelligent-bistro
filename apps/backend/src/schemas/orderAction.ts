@@ -16,11 +16,13 @@ export const OrderActionSchema = z.object({
     'UPDATE_QUANTITY',
     'UPDATE_MODIFIERS',
     'CLEAR_CART',
+    'CANCEL_ORDER',
     'SHOW_CATEGORY',
     'SHOW_FILTERED_ITEMS',
     'NO_OP'
   ]),
   itemId: z.string().optional(),
+  orderId: z.string().optional(),
   quantity: z.number().int().positive().optional(),
   category: z.string().optional(),
   filter: z.string().optional(),

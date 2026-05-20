@@ -33,7 +33,7 @@ export type PlacedOrder = {
   total: number;
   placedAt: number;
   etaMinutes: string;
-  status: 'confirmed' | 'preparing' | 'delivered';
+  status: 'confirmed' | 'preparing' | 'delivered' | 'cancelled';
 };
 
 export type AIActionType =
@@ -42,6 +42,7 @@ export type AIActionType =
   | 'UPDATE_QUANTITY'
   | 'UPDATE_MODIFIERS'
   | 'CLEAR_CART'
+  | 'CANCEL_ORDER'
   | 'SHOW_CATEGORY'
   | 'SHOW_FILTERED_ITEMS'
   | 'NO_OP';
@@ -49,6 +50,7 @@ export type AIActionType =
 export type AIAction = {
   type: AIActionType;
   itemId?: string;
+  orderId?: string;
   quantity?: number;
   category?: string;
   filter?: string;
