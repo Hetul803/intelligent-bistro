@@ -1,5 +1,25 @@
 import { z } from 'zod';
 
+export const SpiceLevelSchema = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]);
+
+export const MenuItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.enum(['Mains', 'Sides', 'Drinks', 'Desserts']),
+  description: z.string(),
+  price: z.number(),
+  image: z.string(),
+  tags: z.array(z.string()),
+  spiceLevel: SpiceLevelSchema,
+  calories: z.number(),
+  ingredients: z.array(z.string()),
+  modifiers: z.object({
+    sizes: z.array(z.string()).optional(),
+    remove: z.array(z.string()).optional(),
+    addOns: z.array(z.string()).optional()
+  })
+});
+
 export const CartItemSchema = z.object({
   id: z.string(),
   name: z.string(),

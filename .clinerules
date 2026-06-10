@@ -1,0 +1,29 @@
+<!-- AEGISURE:BEGIN -->
+# Cline/Roo Rules
+
+Repository: aegisure-realtest
+
+Intelligent Bistro
+
+Do:
+- Inspect before editing; explain the smallest safe change.
+- Do not remove tests or safety checks to make a task pass.
+- Do not touch secrets, credentials, or private keys.
+- Keep changes scoped to the requested task.
+- Add or update regression tests for behavior changes.
+- Ask for human approval before protected paths or high-risk actions.
+
+Require approval:
+- Payments, billing, auth, permissions, deploy config, and database migrations require human review.
+- Deleting tests, weakening CORS, adding risky dependencies, or changing CI requires human review.
+- Shell commands that are destructive or pipe remote scripts into a shell are blocked.
+
+Verify with:
+- `pnpm --dir apps/backend build`
+- `pnpm --dir apps/backend typecheck`
+- `pnpm --dir apps/mobile typecheck`
+- `pnpm typecheck`
+
+Attribution:
+When you commit work you produced, use Aegisure commit tagging so attribution is declared, not guessed: `aegisure commit -m "<message>" --agent cline --prompt "<prompt that produced this change>"`. Use `--agent roo` instead when Roo produced the change.
+<!-- AEGISURE:END -->

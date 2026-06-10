@@ -1,3 +1,4 @@
+import { menu } from '../data/menu.js';
 import { parseOrderWithAI } from '../services/llmParser.js';
 
 type EvalCase = {
@@ -73,6 +74,13 @@ const cases: EvalCase[] = [
 ];
 
 let failures = 0;
+
+for (const item of menu) {
+  if (![0, 1, 2, 3].includes(item.spiceLevel)) {
+    failures += 1;
+    console.error(`FAIL ${item.id} has invalid spiceLevel ${item.spiceLevel}`);
+  }
+}
 
 for (const testCase of cases) {
   const result = await parseOrderWithAI(testCase.message, testCase.cart || []);

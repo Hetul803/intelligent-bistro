@@ -1,3 +1,5 @@
+import { MenuItemSchema } from '../schemas/orderAction.js';
+
 export type MenuItem = {
   id: string;
   name: string;
@@ -16,7 +18,7 @@ export type MenuItem = {
   };
 };
 
-export const menu: MenuItem[] = [
+const rawMenu: MenuItem[] = [
   {
     id: 'spicy_chicken_sandwich',
     name: 'Spicy Chicken Sandwich',
@@ -161,3 +163,5 @@ export const menu: MenuItem[] = [
     modifiers: { addOns: ['extra cocoa', 'cream'] }
   }
 ];
+
+export const menu = MenuItemSchema.array().parse(rawMenu);
