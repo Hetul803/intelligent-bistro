@@ -341,3 +341,5 @@ Selected prompts used during development are included in `/prompts` to show how 
 ## Engineering Notes
 
 This project intentionally defaults to a local semantic order planner because internship demos should be reliable even when an external LLM key, rate limit, or network connection fails. If Ollama is available, the backend can call a local open-source model. If an OpenAI key is available, the backend can use Structured Outputs. In every mode, Zod validates the model/planner result before the frontend applies cart mutations.
+
+Smoke test: clean change 1781719029
