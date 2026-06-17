@@ -1,0 +1,3 @@
+
+# fake config for testing
+OPENAI_API_KEY = "sk-proj-FAKE1234567890abcdefFAKEdoNotUse"
